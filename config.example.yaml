@@ -1,0 +1,21 @@
+# Конфигурация LogT
+# Расположение: ~/.config/logt/config.yaml или ./logt.yaml
+
+# Размер буфера (по умолчанию: 5000)
+buffer-size: 5000
+
+# Максимальный размер буфера (по умолчанию: 10000)
+buffer-max: 10000
+
+# Тема (dark, light)
+theme: dark
+
+# Источники логов (можно переопределить флагами)
+sources:
+  - /var/log/*.log
+  - ~/.config/app/logs/*.log
+
+# Примеры переменных окружения:
+# LOGT_BUFFER_SIZE=10000
+# LOGT_LEVEL=error
+# LOGT_THEME=dark
