@@ -57,14 +57,6 @@ go build -o logt ./cmd/logt
 go install ./cmd/logt
 ```
 
-### Предсобранные бинарники
-Скачать с [Releases](https://github.com/turkprogrammer/logt/releases)
-
-> **Примечание:** Если репозиторий ещё не опубликован, используйте локальную разработку:
-> ```bash
-> go build -o logt ./cmd/logt
-> ```
-
 ## 🛠️ Использование
 
 ### Базовое
