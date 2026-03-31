@@ -58,9 +58,8 @@ type Model struct {
 	Sources        []domain.Source // Список источников
 	IncludeSources map[string]bool // Какие источники показывать
 
-	SearchMatches []int  // Индексы совпадений
-	CurrentMatch  int    // Текущее совпадение
-	SearchPattern string // Паттерн поиска
+	SearchMatches []int // Индексы совпадений
+	CurrentMatch  int   // Текущее совпадение
 
 	// Временные фильтры
 	Since *time.Time
@@ -72,6 +71,9 @@ type Model struct {
 	// Bookmarks
 	Bookmarks    *domain.BookmarkManager
 	BookmarkView bool // Режим просмотра bookmarks
+
+	// Rate calculator
+	RateCalculator *domain.RateCalculator
 }
 
 // NewModel создаёт новую модель с указанным провайдером.
@@ -100,6 +102,7 @@ func NewModel(p provider.Provider, since, until *time.Time, jsonFilter *jsonpath
 		JsonFilter:      jsonFilter,
 		Bookmarks:       domain.NewBookmarkManager(""),
 		BookmarkView:    false,
+		RateCalculator:  domain.NewRateCalculator(),
 	}
 }
 
@@ -297,8 +300,17 @@ func (m *Model) StatusText() string {
 		pausedInfo = "[PAUSED] "
 	}
 
-	return fmt.Sprintf("%sFiles: %d/%d | Lines: %d/%d%s",
-		pausedInfo, enabledSources, len(m.Sources), len(lines), totalLines, filterInfo)
+	// Rate информация
+	rateInfo := ""
+	if m.RateCalculator != nil {
+		rate := m.RateCalculator.Rate()
+		if rate > 0 {
+			rateInfo = fmt.Sprintf(" | Rate: ~%.0f l/s", rate)
+		}
+	}
+
+	return fmt.Sprintf("%sFiles: %d/%d | Lines: %d/%d%s%s",
+		pausedInfo, enabledSources, len(m.Sources), len(lines), totalLines, filterInfo, rateInfo)
 }
 
 // sortKeys сортирует ключи для отображения.

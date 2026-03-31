@@ -4,8 +4,8 @@
 
 ![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-[![Tests](https://img.shields.io/badge/Tests-92%20passing-44b526?style=for-the-badge)]()
-![Version](https://img.shields.io/badge/Version-0.4.0-blue?style=for-the-badge)
+[![Tests](https://img.shields.io/badge/Tests-110%20passing-44b526?style=for-the-badge)]()
+![Version](https://img.shields.io/badge/Version-0.5.0-blue?style=for-the-badge)
 
 ## 🚀 Возможности
 
@@ -18,6 +18,9 @@
 - **JSON Path Filtering** — Мощная фильтрация JSON (`--json '.level == "error"'`)
 - **Headless Mode** — CLI режим без TUI (`--headless --stats`)
 - **Bookmarks** — Сохранение важных строк (`m`, `M`, `e`)
+- **Shell Completions** — Автодополнение для bash/zsh/fish (`logt completion bash`)
+- **Color Mode** — Управление цветами (`--color always|never|auto`)
+- **Rate Calculator** — Отображение скорости поступления логов в status bar
 
 ### Просмотр
 - **Live Tail** — Автопрокрутка при поступлении новых строк
@@ -242,6 +245,16 @@ logt --headless --tail 100 ./app.log
 
 # Headless + stats + time filter
 logt --headless --stats --tail 50 --since 1h ./app.log
+
+# Shell completions
+logt completion bash > /etc/bash_completion.d/logt
+logt completion zsh > /usr/local/share/zsh/site-functions/_logt
+logt completion fish > ~/.config/fish/completions/logt.fish
+
+# Color mode
+logt --color always ./app.log    # Всегда использовать цвета
+logt --color never ./app.log     # Отключить цвета
+logt --color auto ./app.log      # Авто-определение (по умолчанию)
 ```
 
 ## ⌨️ Горячие клавиши
@@ -356,6 +369,8 @@ LOGT_THEME=dark
 -t, --theme string       Тема (dark)
 -S, --since string       Фильтр с времени (1h, 30m, 2024-01-15)
 -U, --until string       Фильтр по время (1h, 30m, 2024-01-15)
+-j, --json string        JSON Path фильтр (.level == "error")
+-c, --color string       Цветовой режим (always, never, auto)
 -v, --version            Версия
 -h, --help               Помощь
 ```
@@ -375,7 +390,6 @@ LOGT_THEME=dark
 
 - Windows-only file watching (polling, не inotify)
 - Нет удалённой поддержки логов (в планах: HTTP forwarding)
-- TUI only (без headless режима)
 
 ## 🤝 Вклад
 

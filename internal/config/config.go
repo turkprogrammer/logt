@@ -32,6 +32,7 @@ type Config struct {
 	Tail       int      `mapstructure:"tail"`
 	Stats      bool     `mapstructure:"stats"`
 	Export     string   `mapstructure:"export"`
+	Color      string   `mapstructure:"color"`
 }
 
 // DefaultConfig возвращает конфигурацию по умолчанию.
@@ -48,6 +49,7 @@ func DefaultConfig() *Config {
 		Tail:       0, // 0 = все строки
 		Stats:      false,
 		Export:     "",
+		Color:      "auto", // default color mode
 	}
 }
 
@@ -82,6 +84,7 @@ func Load() (*Config, error) {
 	pflag.CommandLine.IntP("tail", "n", 0, "Последние N строк (0 = все)")
 	pflag.CommandLine.BoolP("stats", "s", false, "Вывод статистики")
 	pflag.CommandLine.StringP("export", "e", "", "Экспорт bookmarks в файл")
+	pflag.CommandLine.StringP("color", "c", "auto", "Цветовой режим (always, never, auto)")
 	pflag.CommandLine.BoolP("version", "v", false, "Версия")
 	pflag.CommandLine.BoolP("help", "h", false, "Помощь")
 
@@ -98,6 +101,7 @@ func Load() (*Config, error) {
 	viper.BindPFlag("tail", pflag.CommandLine.Lookup("tail"))
 	viper.BindPFlag("stats", pflag.CommandLine.Lookup("stats"))
 	viper.BindPFlag("export", pflag.CommandLine.Lookup("export"))
+	viper.BindPFlag("color", pflag.CommandLine.Lookup("color"))
 
 	pflag.Parse()
 
@@ -120,6 +124,7 @@ func Load() (*Config, error) {
 		Tail:       viper.GetInt("tail"),
 		Stats:      viper.GetBool("stats"),
 		Export:     viper.GetString("export"),
+		Color:      viper.GetString("color"),
 	}
 
 	if cfg.BufferSize <= 0 {

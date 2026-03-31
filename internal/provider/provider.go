@@ -222,67 +222,93 @@ func (fp *FileProvider) watchLoop(path string, file *os.File, initialRead bool) 
 		Path: path,
 	}
 
-	// При первом запуске читаем весь файл
 	if initialRead {
 		fp.readExistingContent(file, source)
 	}
 
 	reader := bufio.NewReader(file)
-	fp.mu.RLock()
-	currentOffset := fp.offsets[path]
-	fp.mu.RUnlock()
+	currentOffset := fp.getOffset(path)
 
 	for {
-		fileInfo, err := file.Stat()
+		newSize, err := fp.getFileSize(file)
 		if err != nil {
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 
-		newSize := fileInfo.Size()
-
-		// Файл был пересоздан (ротация)
 		if newSize < currentOffset {
 			currentOffset = 0
-			file.Seek(0, io.SeekStart)
-			reader = bufio.NewReader(file)
+			reader = fp.resetReader(file)
 		}
 
 		if newSize > currentOffset {
-			file.Seek(currentOffset, io.SeekStart)
-			reader = bufio.NewReader(file)
-
-			for {
-				line, err := reader.ReadString('\n')
-				if err != nil {
-					if err == io.EOF {
-						break
-					}
-					continue
-				}
-
-				line = strings.TrimSuffix(line, "\n")
-				line = strings.TrimSuffix(line, "\r")
-
-				if line != "" {
-					logLine := fp.parser.Parse(line, source)
-					if logLine != nil {
-						select {
-						case fp.logChan <- *logLine:
-						case <-time.After(10 * time.Millisecond):
-						}
-					}
-				}
-			}
-
-			currentOffset = newSize
-			fp.mu.Lock()
-			fp.offsets[path] = currentOffset
-			fp.mu.Unlock()
+			currentOffset = fp.readNewLines(file, reader, currentOffset, source, path)
 		}
 
 		time.Sleep(100 * time.Millisecond)
 	}
+}
+
+// getOffset возвращает смещение для файла.
+func (fp *FileProvider) getOffset(path string) int64 {
+	fp.mu.RLock()
+	defer fp.mu.RUnlock()
+	return fp.offsets[path]
+}
+
+// getFileSize получает размер файла.
+func (fp *FileProvider) getFileSize(file *os.File) (int64, error) {
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return 0, err
+	}
+	return fileInfo.Size(), nil
+}
+
+// resetReader сбрасывает reader после ротации файла.
+func (fp *FileProvider) resetReader(file *os.File) *bufio.Reader {
+	file.Seek(0, io.SeekStart)
+	return bufio.NewReader(file)
+}
+
+// readNewLines читает новые строки и возвращает новое смещение.
+func (fp *FileProvider) readNewLines(file *os.File, reader *bufio.Reader, currentOffset int64, source domain.Source, path string) int64 {
+	file.Seek(currentOffset, io.SeekStart)
+	reader = bufio.NewReader(file)
+
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			continue
+		}
+
+		line = strings.TrimSuffix(line, "\n")
+		line = strings.TrimSuffix(line, "\r")
+
+		if line != "" {
+			logLine := fp.parser.Parse(line, source)
+			if logLine != nil {
+				select {
+				case fp.logChan <- *logLine:
+				case <-time.After(10 * time.Millisecond):
+				}
+			}
+		}
+	}
+
+	newOffset, _ := file.Seek(0, io.SeekCurrent)
+	fp.updateOffset(path, newOffset)
+	return newOffset
+}
+
+// updateOffset обновляет смещение для файла.
+func (fp *FileProvider) updateOffset(path string, offset int64) {
+	fp.mu.Lock()
+	defer fp.mu.Unlock()
+	fp.offsets[path] = offset
 }
 
 // readExistingContent читает весь существующий контент файла.

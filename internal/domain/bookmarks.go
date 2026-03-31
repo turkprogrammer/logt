@@ -67,11 +67,6 @@ func (bm *BookmarkManager) Clear() {
 	bm.bookmarks = make([]Bookmark, 0)
 }
 
-// Count возвращает количество bookmarks.
-func (bm *BookmarkManager) Count() int {
-	return len(bm.bookmarks)
-}
-
 // Export экспортирует bookmarks в YAML файл.
 func (bm *BookmarkManager) Export(path string) error {
 	data, err := yaml.Marshal(bm.toYAML())

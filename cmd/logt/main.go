@@ -17,9 +17,15 @@ import (
 	"github.com/turkprogrammer/logt/internal/ui"
 )
 
-var version = "0.4.0"
+var version = "0.5.0"
 
 func main() {
+	// Обработка subcommands (должно быть до парсинга flags)
+	if len(os.Args) > 1 && os.Args[1] == "completion" {
+		completionCmd(os.Args)
+		return
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Printf("Warning: failed to load config: %v", err)

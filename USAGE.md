@@ -42,6 +42,112 @@ logt --since "2024-01-15 10:00" ./app.log
 
 ---
 
+## Shell Completions
+
+LogT поддерживает автодополнение команд для популярных оболочек: **bash**, **zsh**, **fish**.
+
+### Генерация completions
+
+**Bash:**
+```bash
+# Linux
+logt completion bash > /etc/bash_completion.d/logt
+
+# macOS (через Homebrew)
+logt completion bash > $(brew --prefix)/etc/bash_completion.d/logt
+
+# Временная загрузка (текущая сессия)
+source <(logt completion bash)
+```
+
+**Zsh:**
+```bash
+# Linux/macOS
+logt completion zsh > /usr/local/share/zsh/site-functions/_logt
+
+# Временная загрузка (текущая сессия)
+source <(logt completion zsh)
+
+# Добавить в ~/.zshrc
+echo 'fpath=(/usr/local/share/zsh/site-functions $fpath)' >> ~/.zshrc
+echo 'autoload -Uz compinit; compinit' >> ~/.zshrc
+```
+
+**Fish:**
+```bash
+# Создать директорию completions
+mkdir -p ~/.config/fish/completions
+
+# Сохранить completions
+logt completion fish > ~/.config/fish/completions/logt.fish
+
+# Временная загрузка (текущая сессия)
+logt completion fish | source
+```
+
+### Примеры использования
+
+После установки completions доступны автодополнения для:
+
+```bash
+# Автодополнение флагов
+logt --<TAB>
+# --path, --level, --buffer, --color, --since, --until, --json, ...
+
+# Автодополнение значений
+logt --color <TAB>
+# always, never, auto
+
+logt --level <TAB>
+# debug, info, warn, error
+
+# Автодополнение подкоманд
+logt <TAB>
+# completion, help, version
+```
+
+---
+
+## Color Mode
+
+LogT поддерживает гибкое управление цветовым режимом через флаг `--color`.
+
+### Режимы
+
+| Режим | Описание |
+|-------|----------|
+| `always` | Всегда использовать цвета (даже в pipe) |
+| `never` | Отключить все цвета (монохромный вывод) |
+| `auto` | Авто-определение (по умолчанию) |
+
+### Примеры использования
+
+```bash
+# Всегда использовать цвета (полезно для pipe в less)
+logt --color always ./app.log | less -R
+
+# Отключить цвета (для логирования в файл)
+logt --color never ./app.log > output.txt
+
+# Авто-определение (по умолчанию)
+logt --color auto ./app.log
+```
+
+### В конфигурации
+
+**YAML** (`~/.config/logt/config.yaml`):
+```yaml
+color: always
+```
+
+**Переменные окружения**:
+```bash
+export LOGT_COLOR=always
+logt ./app.log
+```
+
+---
+
 ## Горячие клавиши
 
 | Клавиша | Действие |
@@ -264,6 +370,7 @@ sources:
   - /var/log/*.log
 since: 1h
 until: 10m
+color: always
 ```
 
 ### Переменные окружения
@@ -275,6 +382,7 @@ export LOGT_FORWARD=out.log
 export LOGT_SINCE=1h
 export LOGT_UNTIL=10m
 export LOGT_JSON_FILTER='.level == "error"'
+export LOGT_COLOR=always
 ```
 
 ### Флаги командной строки
@@ -290,6 +398,7 @@ export LOGT_JSON_FILTER='.level == "error"'
 | `--since` | `-S` | Фильтр с времени (1h, 30m, 2024-01-15) |
 | `--until` | `-U` | Фильтр по время (1h, 30m, 2024-01-15) |
 | `--json` | `-j` | JSON Path фильтр (например: `.level == "error"`) |
+| `--color` | `-c` | Цветовой режим (always, never, auto) |
 | `--version` | `-v` | Показать версию |
 | `--help` | `-h` | Показать помощь |
 

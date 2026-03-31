@@ -201,64 +201,93 @@ func (wp *WatcherProvider) handleNewFile(path string) {
 
 // handleFileWrite обрабатывает запись в файл.
 func (wp *WatcherProvider) handleFileWrite(path string) {
-	wp.mu.RLock()
-	if !wp.includeSources[path] {
-		wp.mu.RUnlock()
+	if !wp.isSourceEnabled(path) {
 		return
 	}
-	currentOffset := wp.offsets[path]
-	wp.mu.RUnlock()
 
-	file, err := os.Open(path)
+	currentOffset := wp.getOffset(path)
+	newSize, file, err := wp.openFileAndGetStat(path)
 	if err != nil {
 		return
 	}
 	defer file.Close()
-
-	stat, err := file.Stat()
-	if err != nil {
-		return
-	}
-
-	newSize := stat.Size()
 
 	if newSize < currentOffset {
 		currentOffset = 0
 	}
 
 	if newSize > currentOffset {
-		file.Seek(currentOffset, 0)
-		reader := bufio.NewReader(file)
+		wp.readAndSendLines(file, currentOffset, path)
+		wp.updateOffset(path, newSize)
+	}
+}
 
-		source := domain.Source{
-			Name: filepath.Base(path),
-			Path: path,
+// isSourceEnabled проверяет, включён ли источник.
+func (wp *WatcherProvider) isSourceEnabled(path string) bool {
+	wp.mu.RLock()
+	defer wp.mu.RUnlock()
+	return wp.includeSources[path]
+}
+
+// getOffset возвращает текущее смещение для файла.
+func (wp *WatcherProvider) getOffset(path string) int64 {
+	wp.mu.RLock()
+	defer wp.mu.RUnlock()
+	return wp.offsets[path]
+}
+
+// openFileAndGetStat открывает файл и получает его размер.
+func (wp *WatcherProvider) openFileAndGetStat(path string) (int64, *os.File, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	stat, err := file.Stat()
+	if err != nil {
+		file.Close()
+		return 0, nil, err
+	}
+
+	return stat.Size(), file, nil
+}
+
+// readAndSendLines читает новые строки и отправляет в канал.
+func (wp *WatcherProvider) readAndSendLines(file *os.File, offset int64, path string) {
+	file.Seek(offset, 0)
+	reader := bufio.NewReader(file)
+
+	source := domain.Source{
+		Name: filepath.Base(path),
+		Path: path,
+	}
+
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			break
 		}
 
-		for {
-			line, err := reader.ReadString('\n')
-			if err != nil {
-				break
-			}
+		line = strings.TrimSuffix(line, "\n")
+		line = strings.TrimSuffix(line, "\r")
 
-			line = strings.TrimSuffix(line, "\n")
-			line = strings.TrimSuffix(line, "\r")
-
-			if line != "" {
-				logLine := wp.parser.Parse(line, source)
-				if logLine != nil {
-					select {
-					case wp.logChan <- *logLine:
-					case <-time.After(10 * time.Millisecond):
-					}
+		if line != "" {
+			logLine := wp.parser.Parse(line, source)
+			if logLine != nil {
+				select {
+				case wp.logChan <- *logLine:
+				case <-time.After(10 * time.Millisecond):
 				}
 			}
 		}
-
-		wp.mu.Lock()
-		wp.offsets[path] = newSize
-		wp.mu.Unlock()
 	}
+}
+
+// updateOffset обновляет смещение для файла.
+func (wp *WatcherProvider) updateOffset(path string, newSize int64) {
+	wp.mu.Lock()
+	defer wp.mu.Unlock()
+	wp.offsets[path] = newSize
 }
 
 // handleFileRemove обрабатывает удаление файла.

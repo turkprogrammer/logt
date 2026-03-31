@@ -35,6 +35,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case MsgLogLine:
 		if !m.Paused {
 			m.Buffer.Add(msg.Line)
+			m.RateCalculator.Update()
 			if ShouldAutoScroll(m) {
 				lines := m.VisibleLines()
 				m.SelectedLine = len(lines) - 1
