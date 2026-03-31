@@ -25,6 +25,8 @@ type Config struct {
 	Theme      string   `mapstructure:"theme"`
 	Forward    string   `mapstructure:"forward"`
 	Sources    []string `mapstructure:"sources"`
+	Since      string   `mapstructure:"since"`
+	Until      string   `mapstructure:"until"`
 }
 
 // DefaultConfig возвращает конфигурацию по умолчанию.
@@ -64,6 +66,8 @@ func Load() (*Config, error) {
 	pflag.CommandLine.IntP("max-buffer", "m", 10000, "Максимальный размер буфера")
 	pflag.CommandLine.StringP("theme", "t", "dark", "Тема (dark, light)")
 	pflag.CommandLine.StringP("forward", "f", "", "Экспорт логов (файл или stdout)")
+	pflag.CommandLine.StringP("since", "S", "", "Фильтр с времени (1h, 30m, 2024-01-15)")
+	pflag.CommandLine.StringP("until", "U", "", "Фильтр по время (1h, 30m, 2024-01-15)")
 	pflag.CommandLine.BoolP("version", "v", false, "Версия")
 	pflag.CommandLine.BoolP("help", "h", false, "Помощь")
 
@@ -73,6 +77,8 @@ func Load() (*Config, error) {
 	viper.BindPFlag("buffer-max", pflag.CommandLine.Lookup("max-buffer"))
 	viper.BindPFlag("theme", pflag.CommandLine.Lookup("theme"))
 	viper.BindPFlag("forward", pflag.CommandLine.Lookup("forward"))
+	viper.BindPFlag("since", pflag.CommandLine.Lookup("since"))
+	viper.BindPFlag("until", pflag.CommandLine.Lookup("until"))
 
 	pflag.Parse()
 
@@ -88,6 +94,8 @@ func Load() (*Config, error) {
 		Theme:      viper.GetString("theme"),
 		Forward:    viper.GetString("forward"),
 		Sources:    viper.GetStringSlice("sources"),
+		Since:      viper.GetString("since"),
+		Until:      viper.GetString("until"),
 	}
 
 	if cfg.BufferSize <= 0 {

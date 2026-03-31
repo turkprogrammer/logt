@@ -4,7 +4,8 @@
 
 ![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-[![Tests](https://img.shields.io/badge/Tests-36%20passing-44b526?style=for-the-badge)]()
+[![Tests](https://img.shields.io/badge/Tests-57%20passing-44b526?style=for-the-badge)]()
+![Version](https://img.shields.io/badge/Version-0.3.0-blue?style=for-the-badge)
 
 ## 🚀 Возможности
 
@@ -13,6 +14,7 @@
 - **Ring Buffer** — Хранит последние 5000 строк в памяти (настраивается)
 - **Stdin Support** — `cat app.log | logt`
 - **Log Forwarding** — Экспорт отфильтрованных логов в файл (`--forward`) или stdout (`--forward -`)
+- **Time Filtering** — Фильтрация по времени (`--since 1h`, `--until 2024-01-15`)
 
 ### Просмотр
 - **Live Tail** — Автопрокрутка при поступлении новых строк
@@ -187,6 +189,18 @@ logt /var/log/services/*.log
 # Найти только ошибки
 logt --level error ./app.log
 
+# Фильтрация по времени (последний час)
+logt --since 1h ./app.log
+
+# Фильтрация по времени (с 30 минут назад до 10 минут назад)
+logt --since 30m --until 10m ./app.log
+
+# Фильтрация по абсолютному времени
+logt --since "2024-01-15 10:00" ./app.log
+
+# Комбинация фильтров
+logt --since 1h --level error ./app.log
+
 # С настроенным буфером
 logt --buffer 10000 --max-buffer 20000 ./app.log
 
@@ -304,14 +318,16 @@ LOGT_THEME=dark
 
 ### Флаги командной строки
 ```
--p, --path string     Пути к файлам или шаблоны
--l, --level string   Фильтр по уровню
--b, --buffer int      Размер буфера (по умолчанию: 5000)
--m, --max-buffer int  Максимальный размер буфера
--f, --forward string  Экспорт логов (файл или stdout)
--t, --theme string    Тема (dark)
--v, --version         Версия
--h, --help            Помощь
+-p, --path string        Пути к файлам или шаблоны
+-l, --level string       Фильтр по уровню (debug,info,warn,error)
+-b, --buffer int         Размер буфера (по умолчанию: 5000)
+-m, --max-buffer int     Максимальный размер буфера
+-f, --forward string     Экспорт логов (файл или stdout)
+-t, --theme string       Тема (dark)
+-S, --since string       Фильтр с времени (1h, 30m, 2024-01-15)
+-U, --until string       Фильтр по время (1h, 30m, 2024-01-15)
+-v, --version            Версия
+-h, --help               Помощь
 ```
 
 ## 📝 Поддерживаемые форматы логов

@@ -395,6 +395,42 @@ func (rb *RingBuffer) GetFiltered(filter string, includeSources map[string]bool)
 	return filtered
 }
 
+// GetFilteredWithTime возвращает отфильтрованные строки с фильтрацией по времени.
+// Фильтрация по тексту, источникам и временному диапазону [since, until].
+func (rb *RingBuffer) GetFilteredWithTime(
+	filter string,
+	includeSources map[string]bool,
+	since, until *time.Time,
+) []LogLine {
+	lines := rb.GetAll()
+	if filter == "" && len(includeSources) == 0 && since == nil && until == nil {
+		return lines
+	}
+	filtered := make([]LogLine, 0, len(lines))
+	for _, line := range lines {
+		if len(includeSources) > 0 {
+			if !includeSources[line.Source.Path] {
+				continue
+			}
+		}
+		if since != nil && line.Timestamp.Before(*since) {
+			continue
+		}
+		if until != nil && line.Timestamp.After(*until) {
+			continue
+		}
+		if filter != "" {
+			lowerContent := strings.ToLower(line.Content)
+			lowerFilter := strings.ToLower(filter)
+			if !strings.Contains(lowerContent, lowerFilter) {
+				continue
+			}
+		}
+		filtered = append(filtered, line)
+	}
+	return filtered
+}
+
 // Len возвращает текущее количество строк в буфере.
 func (rb *RingBuffer) Len() int {
 	rb.mu.RLock()

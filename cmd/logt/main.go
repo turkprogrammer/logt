@@ -6,10 +6,12 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbletea"
 	"github.com/spf13/pflag"
 	"github.com/turkprogrammer/logt/internal/config"
+	"github.com/turkprogrammer/logt/internal/domain"
 	"github.com/turkprogrammer/logt/internal/provider"
 	"github.com/turkprogrammer/logt/internal/ui"
 )
@@ -78,7 +80,26 @@ func run(mp *provider.MultiProvider, cfg *config.Config) {
 		go startForwarding(mp, cfg.Forward)
 	}
 
-	model := ui.NewModel(mp)
+	// Парсинг временных фильтров
+	var since, until *time.Time
+	if cfg.Since != "" {
+		t, err := domain.ParseSince(cfg.Since)
+		if err != nil {
+			log.Printf("Warning: invalid --since value %q: %v", cfg.Since, err)
+		} else {
+			since = &t
+		}
+	}
+	if cfg.Until != "" {
+		t, err := domain.ParseSince(cfg.Until)
+		if err != nil {
+			log.Printf("Warning: invalid --until value %q: %v", cfg.Until, err)
+		} else {
+			until = &t
+		}
+	}
+
+	model := ui.NewModel(mp, since, until)
 
 	p := tea.NewProgram(model,
 		tea.WithAltScreen(),
@@ -100,6 +121,8 @@ func showHelp() {
 	fmt.Println("  logt --path ./logs/*.log --level error")
 	fmt.Println("  logt --forward filtered.log ./app.log")
 	fmt.Println("  logt ./api/*.log ./db/*.log")
+	fmt.Println("  logt --since 1h ./app.log")
+	fmt.Println("  logt --since 30m --until 10m ./app.log")
 	fmt.Println("  cat app.log | logt")
 	fmt.Println("\nConfig: ~/.config/logt/config.yaml or ./logt.yaml")
 }

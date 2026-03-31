@@ -63,10 +63,14 @@ type Model struct {
 	SearchMatches []int  // Индексы совпадений
 	CurrentMatch  int    // Текущее совпадение
 	SearchPattern string // Паттерн поиска
+
+	// Временные фильтры
+	Since *time.Time
+	Until *time.Time
 }
 
 // NewModel создаёт новую модель с указанным провайдером.
-func NewModel(p provider.Provider) *Model {
+func NewModel(p provider.Provider, since, until *time.Time) *Model {
 	sources := p.Sources()
 	includeSources := make(map[string]bool)
 	for _, s := range sources {
@@ -88,6 +92,8 @@ func NewModel(p provider.Provider) *Model {
 		lastUpdate:       time.Now(),
 		SearchMatches:    make([]int, 0),
 		CurrentMatch:     -1,
+		Since:            since,
+		Until:            until,
 	}
 }
 
@@ -99,7 +105,7 @@ func (m *Model) SetSize(width, height int) {
 
 // VisibleLines возвращает видимые (отфильтрованные) строки.
 func (m *Model) VisibleLines() []domain.LogLine {
-	return m.Buffer.GetFiltered(m.FilterText, m.IncludeSources)
+	return m.Buffer.GetFilteredWithTime(m.FilterText, m.IncludeSources, m.Since, m.Until)
 }
 
 // TogglePause переключает режим паузы.

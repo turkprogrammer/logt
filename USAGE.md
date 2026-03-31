@@ -33,6 +33,11 @@ cat app.log | logt
 
 # С фильтром по уровню
 logt --level error ./app.log
+
+# С фильтром по времени
+logt --since 1h ./app.log
+logt --since 30m --until 10m ./app.log
+logt --since "2024-01-15 10:00" ./app.log
 ```
 
 ---
@@ -55,6 +60,63 @@ logt --level error ./app.log
 | `n / N` | Следующее / Предыдущее совпадение |
 | `Tab` | Показать / скрыть панель источников |
 | `q` | Выход |
+
+---
+
+## Фильтрация по времени
+
+LogT поддерживает фильтрацию логов по временным меткам с помощью флагов `--since` и `--until`.
+
+### Форматы времени
+
+**Относительное время** (длительность):
+```bash
+logt --since 1h ./app.log      # Логи за последний час
+logt --since 30m ./app.log     # Логи за последние 30 минут
+logt --since 24h ./app.log     # Логи за последние 24 часа
+logt --since 1h30m ./app.log   # Логи за последние 1.5 часа
+```
+
+**Абсолютное время** (конкретная дата/время):
+```bash
+logt --since "2024-01-15 10:00" ./app.log    # С 10 утра 15 января
+logt --since "2024-01-15" ./app.log          # С начала дня 15 января
+logt --since 2024-01-15T10:00:00 ./app.log   # ISO8601 формат
+```
+
+**Диапазон времени**:
+```bash
+logt --since 1h --until 10m ./app.log        # Логи между 1 часом и 10 минутами назад
+logt --since "2024-01-15 10:00" --until "2024-01-15 12:00" ./app.log
+```
+
+### Комбинация с другими фильтрами
+
+```bash
+# Только ошибки за последний час
+logt --since 1h --level error ./app.log
+
+# Только WARN и ERROR за последние 30 минут
+logt --since 30m --level warn ./app.log
+
+# Текстовый поиск + время
+logt --since 1h "connection failed" ./app.log
+```
+
+### В конфигурации
+
+**YAML** (`~/.config/logt/config.yaml`):
+```yaml
+since: 1h
+until: 10m
+```
+
+**Переменные окружения**:
+```bash
+export LOGT_SINCE=1h
+export LOGT_UNTIL=10m
+logt ./app.log
+```
 
 ---
 
@@ -112,6 +174,8 @@ theme: dark
 forward: filtered.log
 sources:
   - /var/log/*.log
+since: 1h
+until: 10m
 ```
 
 ### Переменные окружения
@@ -120,7 +184,24 @@ sources:
 export LOGT_BUFFER_SIZE=10000
 export LOGT_LEVEL=error
 export LOGT_FORWARD=out.log
+export LOGT_SINCE=1h
+export LOGT_UNTIL=10m
 ```
+
+### Флаги командной строки
+
+| Флаг | Короткий | Описание |
+|------|----------|----------|
+| `--path` | `-p` | Пути к файлам или glob паттерны |
+| `--level` | `-l` | Фильтр по уровню (debug,info,warn,error) |
+| `--buffer` | `-b` | Размер буфера (по умолчанию 5000) |
+| `--max-buffer` | `-m` | Максимальный размер буфера |
+| `--theme` | `-t` | Тема (dark, light) |
+| `--forward` | `-f` | Экспорт логов (файл или stdout) |
+| `--since` | `-S` | Фильтр с времени (1h, 30m, 2024-01-15) |
+| `--until` | `-U` | Фильтр по время (1h, 30m, 2024-01-15) |
+| `--version` | `-v` | Показать версию |
+| `--help` | `-h` | Показать помощь |
 
 ---
 
