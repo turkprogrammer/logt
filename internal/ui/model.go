@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/turkprogrammer/logt/internal/domain"
+	"github.com/turkprogrammer/logt/internal/domain/jsonpath"
 	"github.com/turkprogrammer/logt/internal/provider"
 )
 
@@ -67,10 +68,13 @@ type Model struct {
 	// Временные фильтры
 	Since *time.Time
 	Until *time.Time
+
+	// JSON Path фильтр
+	JsonFilter *jsonpath.Filter
 }
 
 // NewModel создаёт новую модель с указанным провайдером.
-func NewModel(p provider.Provider, since, until *time.Time) *Model {
+func NewModel(p provider.Provider, since, until *time.Time, jsonFilter *jsonpath.Filter) *Model {
 	sources := p.Sources()
 	includeSources := make(map[string]bool)
 	for _, s := range sources {
@@ -94,6 +98,7 @@ func NewModel(p provider.Provider, since, until *time.Time) *Model {
 		CurrentMatch:     -1,
 		Since:            since,
 		Until:            until,
+		JsonFilter:       jsonFilter,
 	}
 }
 
@@ -105,7 +110,7 @@ func (m *Model) SetSize(width, height int) {
 
 // VisibleLines возвращает видимые (отфильтрованные) строки.
 func (m *Model) VisibleLines() []domain.LogLine {
-	return m.Buffer.GetFilteredWithTime(m.FilterText, m.IncludeSources, m.Since, m.Until)
+	return m.Buffer.GetFilteredCombined(m.FilterText, m.IncludeSources, m.Since, m.Until, m.JsonFilter)
 }
 
 // TogglePause переключает режим паузы.

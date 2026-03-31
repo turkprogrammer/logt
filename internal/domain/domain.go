@@ -16,6 +16,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/turkprogrammer/logt/internal/domain/jsonpath"
 )
 
 // LogLevel представляет уровень важности сообщения в логе.
@@ -419,6 +421,85 @@ func (rb *RingBuffer) GetFilteredWithTime(
 		if until != nil && line.Timestamp.After(*until) {
 			continue
 		}
+		if filter != "" {
+			lowerContent := strings.ToLower(line.Content)
+			lowerFilter := strings.ToLower(filter)
+			if !strings.Contains(lowerContent, lowerFilter) {
+				continue
+			}
+		}
+		filtered = append(filtered, line)
+	}
+	return filtered
+}
+
+// GetFilteredByJson возвращает отфильтрованные строки с фильтрацией по JSON Path.
+// Фильтрация по JSON Path выражению (например, `.level == "error"`).
+func (rb *RingBuffer) GetFilteredByJson(jsonFilter *jsonpath.Filter) []LogLine {
+	lines := rb.GetAll()
+	if jsonFilter == nil {
+		return lines
+	}
+	filtered := make([]LogLine, 0, len(lines))
+	for _, line := range lines {
+		// Применяем фильтр только к JSON строкам
+		if !line.IsJSON {
+			continue
+		}
+		// Извлекаем данные для фильтрации
+		data, ok := line.Parsed.(map[string]any)
+		if !ok || data == nil {
+			continue
+		}
+		// Применяем фильтр
+		if jsonpath.Execute(jsonFilter, data) {
+			filtered = append(filtered, line)
+		}
+	}
+	return filtered
+}
+
+// GetFilteredCombined возвращает отфильтрованные строки с комбинацией фильтров.
+// Комбинирует текстовую фильтрацию, по времени и JSON Path.
+func (rb *RingBuffer) GetFilteredCombined(
+	filter string,
+	includeSources map[string]bool,
+	since, until *time.Time,
+	jsonFilter *jsonpath.Filter,
+) []LogLine {
+	lines := rb.GetAll()
+	if filter == "" && len(includeSources) == 0 && since == nil && until == nil && jsonFilter == nil {
+		return lines
+	}
+	filtered := make([]LogLine, 0, len(lines))
+	for _, line := range lines {
+		// Фильтрация по источникам
+		if len(includeSources) > 0 {
+			if !includeSources[line.Source.Path] {
+				continue
+			}
+		}
+		// Фильтрация по времени
+		if since != nil && line.Timestamp.Before(*since) {
+			continue
+		}
+		if until != nil && line.Timestamp.After(*until) {
+			continue
+		}
+		// JSON Path фильтрация
+		if jsonFilter != nil {
+			if !line.IsJSON {
+				continue
+			}
+			data, ok := line.Parsed.(map[string]any)
+			if !ok || data == nil {
+				continue
+			}
+			if !jsonpath.Execute(jsonFilter, data) {
+				continue
+			}
+		}
+		// Текстовая фильтрация
 		if filter != "" {
 			lowerContent := strings.ToLower(line.Content)
 			lowerFilter := strings.ToLower(filter)

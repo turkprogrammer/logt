@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/turkprogrammer/logt/internal/config"
 	"github.com/turkprogrammer/logt/internal/domain"
+	"github.com/turkprogrammer/logt/internal/domain/jsonpath"
 	"github.com/turkprogrammer/logt/internal/provider"
 	"github.com/turkprogrammer/logt/internal/ui"
 )
@@ -99,7 +100,18 @@ func run(mp *provider.MultiProvider, cfg *config.Config) {
 		}
 	}
 
-	model := ui.NewModel(mp, since, until)
+	// Парсинг JSON Path фильтра
+	var jsonFilter *jsonpath.Filter
+	if cfg.JsonFilter != "" {
+		var err error
+		jsonFilter, err = jsonpath.Parse(cfg.JsonFilter)
+		if err != nil {
+			log.Printf("Warning: invalid --json value %q: %v", cfg.JsonFilter, err)
+			jsonFilter = nil
+		}
+	}
+
+	model := ui.NewModel(mp, since, until, jsonFilter)
 
 	p := tea.NewProgram(model,
 		tea.WithAltScreen(),
@@ -123,6 +135,8 @@ func showHelp() {
 	fmt.Println("  logt ./api/*.log ./db/*.log")
 	fmt.Println("  logt --since 1h ./app.log")
 	fmt.Println("  logt --since 30m --until 10m ./app.log")
+	fmt.Println("  logt --json '.level == \"error\"' ./app.log")
+	fmt.Println("  logt --json '.message | startswith(\"Error\")' ./app.log")
 	fmt.Println("  cat app.log | logt")
 	fmt.Println("\nConfig: ~/.config/logt/config.yaml or ./logt.yaml")
 }

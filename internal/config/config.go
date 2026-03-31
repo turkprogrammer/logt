@@ -27,6 +27,7 @@ type Config struct {
 	Sources    []string `mapstructure:"sources"`
 	Since      string   `mapstructure:"since"`
 	Until      string   `mapstructure:"until"`
+	JsonFilter string   `mapstructure:"json-filter"`
 }
 
 // DefaultConfig возвращает конфигурацию по умолчанию.
@@ -68,6 +69,7 @@ func Load() (*Config, error) {
 	pflag.CommandLine.StringP("forward", "f", "", "Экспорт логов (файл или stdout)")
 	pflag.CommandLine.StringP("since", "S", "", "Фильтр с времени (1h, 30m, 2024-01-15)")
 	pflag.CommandLine.StringP("until", "U", "", "Фильтр по время (1h, 30m, 2024-01-15)")
+	pflag.CommandLine.StringP("json", "j", "", "JSON Path фильтр (например: '.level == \"error\"')")
 	pflag.CommandLine.BoolP("version", "v", false, "Версия")
 	pflag.CommandLine.BoolP("help", "h", false, "Помощь")
 
@@ -79,6 +81,7 @@ func Load() (*Config, error) {
 	viper.BindPFlag("forward", pflag.CommandLine.Lookup("forward"))
 	viper.BindPFlag("since", pflag.CommandLine.Lookup("since"))
 	viper.BindPFlag("until", pflag.CommandLine.Lookup("until"))
+	viper.BindPFlag("json-filter", pflag.CommandLine.Lookup("json"))
 
 	pflag.Parse()
 
@@ -96,6 +99,7 @@ func Load() (*Config, error) {
 		Sources:    viper.GetStringSlice("sources"),
 		Since:      viper.GetString("since"),
 		Until:      viper.GetString("until"),
+		JsonFilter: viper.GetString("json-filter"),
 	}
 
 	if cfg.BufferSize <= 0 {

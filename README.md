@@ -4,8 +4,8 @@
 
 ![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-[![Tests](https://img.shields.io/badge/Tests-57%20passing-44b526?style=for-the-badge)]()
-![Version](https://img.shields.io/badge/Version-0.3.0-blue?style=for-the-badge)
+[![Tests](https://img.shields.io/badge/Tests-78%20passing-44b526?style=for-the-badge)]()
+![Version](https://img.shields.io/badge/Version-0.3.1-blue?style=for-the-badge)
 
 ## 🚀 Возможности
 
@@ -15,6 +15,7 @@
 - **Stdin Support** — `cat app.log | logt`
 - **Log Forwarding** — Экспорт отфильтрованных логов в файл (`--forward`) или stdout (`--forward -`)
 - **Time Filtering** — Фильтрация по времени (`--since 1h`, `--until 2024-01-15`)
+- **JSON Path Filtering** — Мощная фильтрация JSON (`--json '.level == "error"'`)
 
 ### Просмотр
 - **Live Tail** — Автопрокрутка при поступлении новых строк
@@ -200,6 +201,21 @@ logt --since "2024-01-15 10:00" ./app.log
 
 # Комбинация фильтров
 logt --since 1h --level error ./app.log
+
+# JSON Path фильтрация (только ошибки)
+logt --json '.level == "error"' ./app.log
+
+# JSON Path фильтрация (startswith)
+logt --json '.message | startswith("Error")' ./app.log
+
+# JSON Path фильтрация (contains)
+logt --json '.error | contains("timeout")' ./app.log
+
+# JSON Path + время
+logt --json '.level == "error"' --since 1h ./app.log
+
+# JSON Path + вложенные поля
+logt --json '.user.role == "admin"' ./app.log
 
 # С настроенным буфером
 logt --buffer 10000 --max-buffer 20000 ./app.log

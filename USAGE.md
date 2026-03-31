@@ -103,7 +103,95 @@ logt --since 30m --level warn ./app.log
 logt --since 1h "connection failed" ./app.log
 ```
 
+---
+
+## JSON Path фильтрация
+
+LogT поддерживает мощную JSON Path фильтрацию для работы с JSON логами, похожую на `jq`.
+
+### Базовый синтаксис
+
+**Точное совпадение** (`==`):
+```bash
+# Только ошибки
+logt --json '.level == "error"' ./app.log
+
+# Только определённый сервис
+logt --json '.service == "api-gateway"' ./app.log
+
+# Числовые значения
+logt --json '.status == 500' ./app.log
+
+# Boolean значения
+logt --json '.success == false' ./app.log
+```
+
+**Отрицание** (`!=`):
+```bash
+# Всё кроме debug
+logt --json '.level != "debug"' ./app.log
+
+# Всё кроме статуса 200
+logt --json '.status != 200' ./app.log
+```
+
+**Префикс** (`startswith`):
+```bash
+# Сообщения начинающиеся с "Error"
+logt --json '.message | startswith("Error")' ./app.log
+
+# URL начинающиеся с /api
+logt --json '.url | startswith("/api")' ./app.log
+```
+
+**Подстрока** (`contains`):
+```bash
+# Сообщения содержащие "timeout"
+logt --json '.message | contains("timeout")' ./app.log
+
+# Ошибки подключения
+logt --json '.error | contains("connection")' ./app.log
+```
+
+### Вложенные поля
+
+```bash
+# Фильтрация по вложенному полю
+logt --json '.user.role == "admin"' ./app.log
+
+# Глубокая вложенность
+logt --json '.request.headers.authorization | startswith("Bearer")' ./app.log
+```
+
+### Комбинация с другими фильтрами
+
+```bash
+# JSON Path + время
+logt --json '.level == "error"' --since 1h ./app.log
+
+# JSON Path + текстовый поиск
+logt --json '.level == "error"' "stacktrace" ./app.log
+
+# JSON Path + уровень + время
+logt --json '.service == "api"' --level error --since 30m ./app.log
+```
+
 ### В конфигурации
+
+**YAML** (`~/.config/logt/config.yaml`):
+```yaml
+json-filter: '.level == "error"'
+```
+
+**Переменные окружения**:
+```bash
+export LOGT_JSON_FILTER='.level == "error"'
+logt ./app.log
+```
+
+---
+
+## В конфигурации
 
 **YAML** (`~/.config/logt/config.yaml`):
 ```yaml
@@ -186,6 +274,7 @@ export LOGT_LEVEL=error
 export LOGT_FORWARD=out.log
 export LOGT_SINCE=1h
 export LOGT_UNTIL=10m
+export LOGT_JSON_FILTER='.level == "error"'
 ```
 
 ### Флаги командной строки
@@ -200,6 +289,7 @@ export LOGT_UNTIL=10m
 | `--forward` | `-f` | Экспорт логов (файл или stdout) |
 | `--since` | `-S` | Фильтр с времени (1h, 30m, 2024-01-15) |
 | `--until` | `-U` | Фильтр по время (1h, 30m, 2024-01-15) |
+| `--json` | `-j` | JSON Path фильтр (например: `.level == "error"`) |
 | `--version` | `-v` | Показать версию |
 | `--help` | `-h` | Показать помощь |
 

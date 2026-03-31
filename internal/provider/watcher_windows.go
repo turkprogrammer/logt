@@ -20,8 +20,3 @@ func IsWatcherSupported() bool {
 func IsWatcherPreferred() bool {
 	return false
 }
-
-// GetWatcherType возвращает тип вотчера для Windows.
-func GetWatcherType() string {
-	return "polling"
-}

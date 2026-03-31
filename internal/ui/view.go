@@ -113,8 +113,29 @@ func (m *Model) renderLogView(width, height int) string {
 		return emptyMsg
 	}
 
-	start := 0
-	end := len(lines)
+	start, end := m.calculateViewport(len(lines), height)
+
+	var sb strings.Builder
+	for i := start; i < end; i++ {
+		lineStr := m.renderLogLine(lines[i], i, width)
+		sb.WriteString(lineStr)
+		if i < end-1 {
+			sb.WriteString("\n")
+		}
+	}
+
+	// Добавляем пустые строки для заполнения экрана
+	for i := 0; i < height-(end-start); i++ {
+		sb.WriteString("\n")
+	}
+
+	return sb.String()
+}
+
+// calculateViewport вычисляет диапазон видимых строк.
+func (m *Model) calculateViewport(totalLines, height int) (start, end int) {
+	start = 0
+	end = totalLines
 
 	if m.SelectedLine >= height {
 		start = m.SelectedLine - height + 1
@@ -127,49 +148,37 @@ func (m *Model) renderLogView(width, height int) string {
 	if start < 0 {
 		start = 0
 	}
-	if end > len(lines) {
-		end = len(lines)
+	if end > totalLines {
+		end = totalLines
 	}
 
-	var sb strings.Builder
-	for i := start; i < end; i++ {
-		line := lines[i]
+	return start, end
+}
 
-		style := GetLevelStyle(line.Level)
-		if line.IsJSON {
-			style = lipgloss.NewStyle().Foreground(ColorMauve)
-		}
-
-		if i == m.SelectedLine {
-			style = style.Background(ColorOverlay).Foreground(ColorText)
-		}
-
-		content := m.formatLine(line, width-5)
-
-		lineNum := fmt.Sprintf("%4d ", i+1)
-		sourceName := fmt.Sprintf(" %-12s", truncate(line.Source.Name, 12))
-
-		lineStr := fmt.Sprintf("%s%s%s %s",
-			lipgloss.NewStyle().Foreground(ColorOverlay).Render(lineNum),
-			lipgloss.NewStyle().Foreground(ColorTeal).Render(sourceName),
-			style.Render(truncate(content, width-20)),
-			style.Render(getLevelTag(line.Level)),
-		)
-
-		lineStr = truncateWithANSI(lineStr, width)
-
-		sb.WriteString(lineStr)
-		if i < end-1 {
-			sb.WriteString("\n")
-		}
+// renderLogLine рендерит одну строку лога.
+func (m *Model) renderLogLine(line domain.LogLine, index, width int) string {
+	style := GetLevelStyle(line.Level)
+	if line.IsJSON {
+		style = lipgloss.NewStyle().Foreground(ColorMauve)
 	}
 
-	emptyLines := height - (end - start)
-	for i := 0; i < emptyLines; i++ {
-		sb.WriteString("\n")
+	if index == m.SelectedLine {
+		style = style.Background(ColorOverlay).Foreground(ColorText)
 	}
 
-	return sb.String()
+	content := m.formatLine(line, width-5)
+
+	lineNum := fmt.Sprintf("%4d ", index+1)
+	sourceName := fmt.Sprintf(" %-12s", truncate(line.Source.Name, 12))
+
+	lineStr := fmt.Sprintf("%s%s%s %s",
+		lipgloss.NewStyle().Foreground(ColorOverlay).Render(lineNum),
+		lipgloss.NewStyle().Foreground(ColorTeal).Render(sourceName),
+		style.Render(truncate(content, width-20)),
+		style.Render(getLevelTag(line.Level)),
+	)
+
+	return truncateWithANSI(lineStr, width)
 }
 
 // formatLine форматирует строку для отображения.
@@ -278,52 +287,63 @@ func (m *Model) renderJSONView() string {
 
 	var sb strings.Builder
 
-	header := fmt.Sprintf(" JSON: %s ", ej.Line.Source.Name)
-	sb.WriteString(lipgloss.NewStyle().
+	// Заголовок
+	sb.WriteString(m.renderJSONHeader(ej.Line.Source.Name))
+	sb.WriteString("\n")
+
+	// Разделитель
+	separator := lipgloss.NewStyle().Foreground(ColorOverlay).Render(strings.Repeat("─", min(m.Width, 60)))
+	sb.WriteString(separator)
+	sb.WriteString("\n")
+
+	// Ключи JSON
+	for i, key := range ej.Keys {
+		sb.WriteString(m.renderJSONKeyLine(key, ej.Data[key], i == ej.Selected))
+	}
+
+	// Нижний разделитель
+	sb.WriteString(separator)
+	sb.WriteString("\n")
+
+	// Подсказка
+	sb.WriteString(StatusBarStyle.Width(m.Width).Render("ESC/Q: close | ↑↓: navigate | Enter: copy value"))
+
+	return sb.String()
+}
+
+// renderJSONHeader рендерит заголовок JSON view.
+func (m *Model) renderJSONHeader(sourceName string) string {
+	header := fmt.Sprintf(" JSON: %s ", sourceName)
+	return lipgloss.NewStyle().
 		Background(ColorMauve).
 		Foreground(ColorBg).
 		Bold(true).
 		Padding(0, 1).
-		Render(header))
-	sb.WriteString("\n")
-	sb.WriteString(lipgloss.NewStyle().
-		Foreground(ColorOverlay).
-		Render(strings.Repeat("\u2500", min(m.Width, 60))))
-	sb.WriteString("\n")
+		Render(header)
+}
 
-	keys := ej.Keys
-	for i, key := range keys {
-		value := ej.Data[key]
-		prefix := "  "
-		if i == ej.Selected {
-			prefix = "\u25b6 " // стрелка
-		}
-
-		keyStr := JSONKeyStyle.Render(truncate(key, 20))
-		valueStr := formatJSONValue(value)
-
-		line := fmt.Sprintf("%s%s%s  %s",
-			lipgloss.NewStyle().Foreground(ColorSubtext).Render(prefix),
-			keyStr,
-			lipgloss.NewStyle().Foreground(ColorOverlay).Render(":"),
-			valueStr,
-		)
-		sb.WriteString(line)
-		if i == ej.Selected {
-			sb.WriteString(" \u2190")
-		}
-		sb.WriteString("\n")
+// renderJSONKeyLine рендерит строку с ключом JSON.
+func (m *Model) renderJSONKeyLine(key string, value interface{}, selected bool) string {
+	prefix := "  "
+	if selected {
+		prefix = "▶ "
 	}
 
-	sb.WriteString(lipgloss.NewStyle().
-		Foreground(ColorOverlay).
-		Render(strings.Repeat("\u2500", min(m.Width, 60))))
-	sb.WriteString("\n")
+	keyStr := JSONKeyStyle.Render(truncate(key, 20))
+	valueStr := formatJSONValue(value)
 
-	sb.WriteString(StatusBarStyle.Width(m.Width).
-		Render("ESC/Q: close | \u2191\u2193: navigate | Enter: copy value"))
+	line := fmt.Sprintf("%s%s%s  %s",
+		lipgloss.NewStyle().Foreground(ColorSubtext).Render(prefix),
+		keyStr,
+		lipgloss.NewStyle().Foreground(ColorOverlay).Render(":"),
+		valueStr,
+	)
 
-	return sb.String()
+	if selected {
+		line += " ←"
+	}
+
+	return line + "\n"
 }
 
 // formatJSONValue форматирует значение JSON с подсветкой.

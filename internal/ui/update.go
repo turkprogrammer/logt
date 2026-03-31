@@ -25,7 +25,6 @@ func ReadLogs(p provider.Provider) tea.Cmd {
 // Update обрабатывает сообщения от Bubble Tea.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-
 	case tea.WindowSizeMsg:
 		m.SetSize(msg.Width, msg.Height)
 		return m, ReadLogs(m.Provider)
@@ -56,140 +55,165 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch msg.Type {
 	case tea.KeyCtrlC:
-		m.Provider.Close()
-		return m, tea.Quit
-
+		return m.handleCtrlC()
 	case tea.KeySpace:
-		m.TogglePause()
-		return m, ReadLogs(m.Provider)
-
+		return m.handleSpace()
 	case tea.KeyEscape:
-		if m.FilterMode != FilterNone {
-			m.FilterMode = FilterNone
-			m.FilterText = ""
-			m.RegexPattern = nil
-			m.RegexError = ""
-			m.UpdateSearchMatches()
-		}
-		return m, nil
-
-	case tea.KeyRunes:
-		key := string(msg.Runes)
-
-		runes := msg.Runes
-		if len(runes) > 0 {
-			r := runes[0]
-
-			switch {
-			case r == 'G' && m.FilterMode == FilterNone:
-				m.GoToEnd()
-				return m, nil
-			case r == 'N' && m.FilterMode == FilterNone:
-				m.NavigateToMatch(-1)
-				return m, nil
-			case r == 'n' && m.FilterMode == FilterNone:
-				m.NavigateToMatch(1)
-				return m, nil
-			case r == 'g' && m.FilterMode == FilterNone:
-				m.GoToStart()
-				return m, nil
-			}
-		}
-
-		switch key {
-		case "/":
-			if m.FilterMode == FilterNone {
-				m.FilterMode = FilterInput
-				m.FilterText = ""
-				m.RegexPattern = nil
-				m.RegexError = ""
-			}
-		case "r":
-			if m.FilterMode == FilterNone {
-				m.FilterMode = FilterRegex
-				m.FilterText = ""
-				m.RegexPattern = nil
-				m.RegexError = ""
-			} else if m.FilterMode == FilterInput {
-				m.FilterMode = FilterRegex
-				m.RegexPattern = nil
-				m.RegexError = ""
-			} else if m.FilterMode == FilterRegex {
-				m.FilterMode = FilterInput
-				m.RegexPattern = nil
-				m.RegexError = ""
-			}
-		default:
-			if m.FilterMode != FilterNone {
-				m.FilterText += key
-				m.UpdateSearchMatches()
-			}
-		}
-		return m, nil
-
+		return m.handleEscape()
 	case tea.KeyEnter:
-		if m.FilterMode != FilterNone && m.FilterText != "" {
-			if m.FilterMode == FilterRegex {
-				if err := m.SetRegex(m.FilterText); err != nil {
-					m.RegexError = "Invalid regex: " + err.Error()
-				}
-			}
-			m.UpdateSearchMatches()
-			m.FilterMode = FilterNone
-		} else {
-			lines := m.VisibleLines()
-			if m.SelectedLine >= 0 && m.SelectedLine < len(lines) {
-				line := lines[m.SelectedLine]
-				if line.IsJSON {
-					m.ExpandJSON(m.SelectedLine)
-				}
-			}
-		}
-		return m, nil
-
+		return m.handleEnter()
 	case tea.KeyBackspace:
-		if m.FilterMode != FilterNone && len(m.FilterText) > 0 {
-			m.FilterText = m.FilterText[:len(m.FilterText)-1]
-			m.UpdateSearchMatches()
-		}
-		return m, nil
-
-	case tea.KeyUp:
-		if m.FilterMode != FilterNone {
-			return m, nil
-		}
-		m.ScrollUp(1)
-		return m, nil
-
-	case tea.KeyDown:
-		if m.FilterMode != FilterNone {
-			return m, nil
-		}
-		m.ScrollDown(1)
-		return m, nil
-
-	case tea.KeyPgUp:
-		m.ScrollUp(10)
-		return m, nil
-
-	case tea.KeyPgDown:
-		m.ScrollDown(10)
-		return m, nil
-
-	case tea.KeyHome:
-		m.GoToStart()
-		return m, nil
-
-	case tea.KeyEnd:
-		m.GoToEnd()
-		return m, nil
-
+		return m.handleBackspace()
+	case tea.KeyUp, tea.KeyDown, tea.KeyPgUp, tea.KeyPgDown, tea.KeyHome, tea.KeyEnd:
+		return m.handleNavigation(msg)
+	case tea.KeyRunes:
+		return m.handleRunes(msg)
 	case tea.KeyTab:
 		m.ShowSourcePanel = !m.ShowSourcePanel
 		return m, nil
 	}
 
 	return m, nil
+}
+
+// handleCtrlC обрабатывает Ctrl+C (выход).
+func (m *Model) handleCtrlC() (tea.Model, tea.Cmd) {
+	m.Provider.Close()
+	return m, tea.Quit
+}
+
+// handleSpace обрабатывает Space (пауза).
+func (m *Model) handleSpace() (tea.Model, tea.Cmd) {
+	m.TogglePause()
+	return m, ReadLogs(m.Provider)
+}
+
+// handleEscape обрабатывает Escape (сброс фильтра).
+func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
+	if m.FilterMode != FilterNone {
+		m.FilterMode = FilterNone
+		m.FilterText = ""
+		m.RegexPattern = nil
+		m.RegexError = ""
+		m.UpdateSearchMatches()
+	}
+	return m, nil
+}
+
+// handleEnter обрабатывает Enter (применить фильтр или открыть JSON).
+func (m *Model) handleEnter() (tea.Model, tea.Cmd) {
+	if m.FilterMode != FilterNone && m.FilterText != "" {
+		if m.FilterMode == FilterRegex {
+			if err := m.SetRegex(m.FilterText); err != nil {
+				m.RegexError = "Invalid regex: " + err.Error()
+			}
+		}
+		m.UpdateSearchMatches()
+		m.FilterMode = FilterNone
+	} else {
+		lines := m.VisibleLines()
+		if m.SelectedLine >= 0 && m.SelectedLine < len(lines) {
+			line := lines[m.SelectedLine]
+			if line.IsJSON {
+				m.ExpandJSON(m.SelectedLine)
+			}
+		}
+	}
+	return m, nil
+}
+
+// handleBackspace обрабатывает Backspace (удаление символа фильтра).
+func (m *Model) handleBackspace() (tea.Model, tea.Cmd) {
+	if m.FilterMode != FilterNone && len(m.FilterText) > 0 {
+		m.FilterText = m.FilterText[:len(m.FilterText)-1]
+		m.UpdateSearchMatches()
+	}
+	return m, nil
+}
+
+// handleNavigation обрабатывает клавиши навигации.
+func (m *Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.FilterMode != FilterNone {
+		return m, nil
+	}
+	switch msg.Type {
+	case tea.KeyUp:
+		m.ScrollUp(1)
+	case tea.KeyDown:
+		m.ScrollDown(1)
+	case tea.KeyPgUp:
+		m.ScrollUp(10)
+	case tea.KeyPgDown:
+		m.ScrollDown(10)
+	case tea.KeyHome:
+		m.GoToStart()
+	case tea.KeyEnd:
+		m.GoToEnd()
+	}
+	return m, nil
+}
+
+// handleRunes обрабатывает символьные клавиши (/, r, g, G, n, N).
+func (m *Model) handleRunes(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	runes := msg.Runes
+	if len(runes) == 0 {
+		return m, nil
+	}
+	r := runes[0]
+
+	// Обработка заглавных букв (G, N, n, g)
+	switch r {
+	case 'G':
+		m.GoToEnd()
+		return m, nil
+	case 'N':
+		m.NavigateToMatch(-1)
+		return m, nil
+	case 'n':
+		m.NavigateToMatch(1)
+		return m, nil
+	case 'g':
+		m.GoToStart()
+		return m, nil
+	}
+
+	key := string(runes)
+	switch key {
+	case "/":
+		if m.FilterMode == FilterNone {
+			m.FilterMode = FilterInput
+			m.FilterText = ""
+			m.RegexPattern = nil
+			m.RegexError = ""
+		}
+	case "r":
+		m.toggleFilterMode()
+	default:
+		if m.FilterMode != FilterNone {
+			m.FilterText += key
+			m.UpdateSearchMatches()
+		}
+	}
+	return m, nil
+}
+
+// toggleFilterMode переключает режимы фильтрации.
+func (m *Model) toggleFilterMode() {
+	switch m.FilterMode {
+	case FilterNone:
+		m.FilterMode = FilterRegex
+		m.FilterText = ""
+		m.RegexPattern = nil
+		m.RegexError = ""
+	case FilterInput:
+		m.FilterMode = FilterRegex
+		m.RegexPattern = nil
+		m.RegexError = ""
+	case FilterRegex:
+		m.FilterMode = FilterInput
+		m.RegexPattern = nil
+		m.RegexError = ""
+	}
 }
 
 // handleJSONViewKey обрабатывает навигацию в режиме просмотра JSON.
