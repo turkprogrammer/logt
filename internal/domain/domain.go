@@ -7,8 +7,11 @@
 package domain
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -472,4 +475,33 @@ func HighlightMatches(text, pattern string) string {
 	}
 
 	return result.String()
+}
+
+// ReadExistingContent читает содержимое файла и отправляет строки в канал.
+// Используется провайдерами для начального чтения файлов.
+func ReadExistingContent(file *os.File, source Source, parser *MultiParser, logChan chan<- LogLine) {
+	reader := bufio.NewReader(file)
+
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			continue
+		}
+
+		line = strings.TrimSuffix(line, "\n")
+		line = strings.TrimSuffix(line, "\r")
+
+		if line != "" {
+			logLine := parser.Parse(line, source)
+			if logLine != nil {
+				select {
+				case logChan <- *logLine:
+				case <-time.After(10 * time.Millisecond):
+				}
+			}
+		}
+	}
 }

@@ -37,8 +37,16 @@ func main() {
 }
 
 func runWithPaths(paths []string, cfg *config.Config) {
-	fileProvider := provider.NewFileProvider()
+	var fileProvider provider.Provider
 	mp := provider.NewMultiProvider()
+
+	// Используем watcher для Linux/macOS, polling для Windows
+	if provider.IsWatcherSupported() && provider.IsWatcherPreferred() {
+		fileProvider = provider.NewWatcherProvider()
+	} else {
+		fileProvider = provider.NewFileProvider()
+	}
+
 	mp.AddProvider(fileProvider)
 
 	expandedPaths := provider.ExpandPaths(paths)

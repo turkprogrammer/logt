@@ -22,6 +22,7 @@ type Provider interface {
 	ToggleSource(path string)
 	EnabledSources() map[string]bool
 	IsSourceEnabled(path string) bool
+	Watch(paths []string) error
 }
 
 // MultiProvider объединяет несколько провайдеров в один.
@@ -128,6 +129,13 @@ func (mp *MultiProvider) Close() error {
 		p.Close()
 	}
 	close(mp.logChan)
+	return nil
+}
+
+// Watch запускает watching на всех провайдерах.
+func (mp *MultiProvider) Watch(paths []string) error {
+	// MultiProvider не watchит пути напрямую,
+	// это делают добавленные в него провайдеры
 	return nil
 }
 
@@ -270,30 +278,7 @@ func (fp *FileProvider) watchLoop(path string, file *os.File, initialRead bool) 
 
 // readExistingContent читает весь существующий контент файла.
 func (fp *FileProvider) readExistingContent(file *os.File, source domain.Source) {
-	reader := bufio.NewReader(file)
-
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			continue
-		}
-
-		line = strings.TrimSuffix(line, "\n")
-		line = strings.TrimSuffix(line, "\r")
-
-		if line != "" {
-			logLine := fp.parser.Parse(line, source)
-			if logLine != nil {
-				select {
-				case fp.logChan <- *logLine:
-				case <-time.After(10 * time.Millisecond):
-				}
-			}
-		}
-	}
+	domain.ReadExistingContent(file, source, fp.parser, fp.logChan)
 }
 
 // LogChan возвращает канал для получения логов.
@@ -463,6 +448,11 @@ func (sp *StdinProvider) ToggleSource(path string) {
 // IsSourceEnabled всегда возвращает true для stdin.
 func (sp *StdinProvider) IsSourceEnabled(path string) bool {
 	return path == "stdin"
+}
+
+// Watch для StdinProvider - заглушка (stdin не требует watching).
+func (sp *StdinProvider) Watch(paths []string) error {
+	return sp.Start()
 }
 
 // IsStdinPiped проверяет, подключён ли stdin к pipe.
