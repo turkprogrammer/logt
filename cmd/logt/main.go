@@ -17,7 +17,7 @@ import (
 	"github.com/turkprogrammer/logt/internal/ui"
 )
 
-var version = "0.1.0"
+var version = "0.4.0"
 
 func main() {
 	cfg, err := config.Load()
@@ -25,6 +25,9 @@ func main() {
 		log.Printf("Warning: failed to load config: %v", err)
 		cfg = config.DefaultConfig()
 	}
+
+	// Показ версии
+	showVersion(cfg)
 
 	if cfg.Path != "" {
 		paths := strings.Split(cfg.Path, ",")
@@ -36,6 +39,13 @@ func main() {
 		runStdin(cfg)
 	} else {
 		showHelp()
+	}
+}
+
+// showVersion показывает версию и выходит.
+func showVersion(cfg *config.Config) {
+	if cfg.Headless && cfg.Stats {
+		fmt.Printf("LogT v%s\n", version)
 	}
 }
 
@@ -77,6 +87,12 @@ func runStdin(cfg *config.Config) {
 }
 
 func run(mp *provider.MultiProvider, cfg *config.Config) {
+	// Headless режим
+	if cfg.Headless {
+		runHeadless(mp, cfg)
+		return
+	}
+
 	if cfg.Forward != "" {
 		go startForwarding(mp, cfg.Forward)
 	}
@@ -138,6 +154,10 @@ func showHelp() {
 	fmt.Println("  logt --json '.level == \"error\"' ./app.log")
 	fmt.Println("  logt --json '.message | startswith(\"Error\")' ./app.log")
 	fmt.Println("  cat app.log | logt")
+	fmt.Println("\nHeadless mode:")
+	fmt.Println("  logt --headless --stats ./app.log")
+	fmt.Println("  logt --headless --tail 100 ./app.log")
+	fmt.Println("  logt --headless --stats --tail 50 --since 1h ./app.log")
 	fmt.Println("\nConfig: ~/.config/logt/config.yaml or ./logt.yaml")
 }
 

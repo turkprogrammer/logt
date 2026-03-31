@@ -29,6 +29,7 @@ type Provider interface {
 type MultiProvider struct {
 	providers []Provider
 	logChan   chan domain.LogLine
+	buffer    *domain.RingBuffer
 	mu        sync.RWMutex
 }
 
@@ -37,6 +38,7 @@ func NewMultiProvider() *MultiProvider {
 	return &MultiProvider{
 		providers: make([]Provider, 0),
 		logChan:   make(chan domain.LogLine, 1000),
+		buffer:    domain.NewRingBuffer(5000),
 	}
 }
 
@@ -54,7 +56,9 @@ func (mp *MultiProvider) forwardLogs(p Provider) {
 	for logLine := range p.LogChan() {
 		select {
 		case mp.logChan <- logLine:
+			mp.buffer.Add(logLine)
 		default:
+			mp.buffer.Add(logLine)
 		}
 	}
 }
@@ -62,6 +66,11 @@ func (mp *MultiProvider) forwardLogs(p Provider) {
 // LogChan возвращает объединённый канал для получения логов.
 func (mp *MultiProvider) LogChan() <-chan domain.LogLine {
 	return mp.logChan
+}
+
+// Buffer возвращает ring буфер логов.
+func (mp *MultiProvider) Buffer() *domain.RingBuffer {
+	return mp.buffer
 }
 
 // Sources возвращает список всех источников из всех провайдеров.

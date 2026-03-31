@@ -58,9 +58,6 @@ type Model struct {
 	Sources        []domain.Source // Список источников
 	IncludeSources map[string]bool // Какие источники показывать
 
-	ThrottleDuration time.Duration // Минимум времени между обновлениями
-	lastUpdate       time.Time     // Время последнего обновления
-
 	SearchMatches []int  // Индексы совпадений
 	CurrentMatch  int    // Текущее совпадение
 	SearchPattern string // Паттерн поиска
@@ -71,6 +68,10 @@ type Model struct {
 
 	// JSON Path фильтр
 	JsonFilter *jsonpath.Filter
+
+	// Bookmarks
+	Bookmarks    *domain.BookmarkManager
+	BookmarkView bool // Режим просмотра bookmarks
 }
 
 // NewModel создаёт новую модель с указанным провайдером.
@@ -82,23 +83,23 @@ func NewModel(p provider.Provider, since, until *time.Time, jsonFilter *jsonpath
 	}
 
 	return &Model{
-		Buffer:           domain.NewRingBuffer(5000),
-		Provider:         p,
-		Paused:           false,
-		AutoScroll:       true,
-		FilterMode:       FilterNone,
-		FilterText:       "",
-		SelectedLine:     0,
-		ShowSourcePanel:  false,
-		Sources:          sources,
-		IncludeSources:   includeSources,
-		ThrottleDuration: 50 * time.Millisecond,
-		lastUpdate:       time.Now(),
-		SearchMatches:    make([]int, 0),
-		CurrentMatch:     -1,
-		Since:            since,
-		Until:            until,
-		JsonFilter:       jsonFilter,
+		Buffer:          domain.NewRingBuffer(5000),
+		Provider:        p,
+		Paused:          false,
+		AutoScroll:      true,
+		FilterMode:      FilterNone,
+		FilterText:      "",
+		SelectedLine:    0,
+		ShowSourcePanel: false,
+		Sources:         sources,
+		IncludeSources:  includeSources,
+		SearchMatches:   make([]int, 0),
+		CurrentMatch:    -1,
+		Since:           since,
+		Until:           until,
+		JsonFilter:      jsonFilter,
+		Bookmarks:       domain.NewBookmarkManager(""),
+		BookmarkView:    false,
 	}
 }
 
@@ -111,6 +112,16 @@ func (m *Model) SetSize(width, height int) {
 // VisibleLines возвращает видимые (отфильтрованные) строки.
 func (m *Model) VisibleLines() []domain.LogLine {
 	return m.Buffer.GetFilteredCombined(m.FilterText, m.IncludeSources, m.Since, m.Until, m.JsonFilter)
+}
+
+// VisibleBookmarkLines возвращает строки из bookmarks.
+func (m *Model) VisibleBookmarkLines() []domain.LogLine {
+	bookmarks := m.Bookmarks.GetAll()
+	lines := make([]domain.LogLine, len(bookmarks))
+	for i, b := range bookmarks {
+		lines[i] = b.Line
+	}
+	return lines
 }
 
 // TogglePause переключает режим паузы.
@@ -161,16 +172,6 @@ func (m *Model) ToggleRegexMode() {
 	} else {
 		m.FilterMode = FilterRegex
 	}
-}
-
-// ShouldThrottle проверяет, нужно ли ограничивать частоту обновлений.
-func (m *Model) ShouldThrottle() bool {
-	now := time.Now()
-	if now.Sub(m.lastUpdate) >= m.ThrottleDuration {
-		m.lastUpdate = now
-		return true
-	}
-	return false
 }
 
 // ExpandJSON разворачивает JSON для просмотра.

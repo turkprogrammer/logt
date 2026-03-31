@@ -90,6 +90,10 @@ func (m *Model) handleSpace() (tea.Model, tea.Cmd) {
 
 // handleEscape обрабатывает Escape (сброс фильтра).
 func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
+	if m.BookmarkView {
+		m.BookmarkView = false
+		return m, nil
+	}
 	if m.FilterMode != FilterNone {
 		m.FilterMode = FilterNone
 		m.FilterText = ""
@@ -162,32 +166,22 @@ func (m *Model) handleRunes(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	r := runes[0]
 
 	// Обработка заглавных букв (G, N, n, g)
-	switch r {
-	case 'G':
-		m.GoToEnd()
-		return m, nil
-	case 'N':
-		m.NavigateToMatch(-1)
-		return m, nil
-	case 'n':
-		m.NavigateToMatch(1)
-		return m, nil
-	case 'g':
-		m.GoToStart()
+	if m.handleCapitalLetters(r) {
 		return m, nil
 	}
 
 	key := string(runes)
 	switch key {
 	case "/":
-		if m.FilterMode == FilterNone {
-			m.FilterMode = FilterInput
-			m.FilterText = ""
-			m.RegexPattern = nil
-			m.RegexError = ""
-		}
+		m.openFilterInput()
 	case "r":
 		m.toggleFilterMode()
+	case "m":
+		m.addBookmark()
+	case "M":
+		m.toggleBookmarkView()
+	case "e":
+		m.exportBookmarks()
 	default:
 		if m.FilterMode != FilterNone {
 			m.FilterText += key
@@ -195,6 +189,59 @@ func (m *Model) handleRunes(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+// handleCapitalLetters обрабатывает заглавные буквы (G, N, n, g).
+func (m *Model) handleCapitalLetters(r rune) bool {
+	switch r {
+	case 'G':
+		m.GoToEnd()
+		return true
+	case 'N':
+		m.NavigateToMatch(-1)
+		return true
+	case 'n':
+		m.NavigateToMatch(1)
+		return true
+	case 'g':
+		m.GoToStart()
+		return true
+	}
+	return false
+}
+
+// openFilterInput открывает ввод фильтра.
+func (m *Model) openFilterInput() {
+	if m.FilterMode == FilterNone {
+		m.FilterMode = FilterInput
+		m.FilterText = ""
+		m.RegexPattern = nil
+		m.RegexError = ""
+	}
+}
+
+// addBookmark добавляет bookmark текущей строки.
+func (m *Model) addBookmark() {
+	if m.FilterMode == FilterNone && !m.BookmarkView {
+		lines := m.VisibleLines()
+		if m.SelectedLine >= 0 && m.SelectedLine < len(lines) {
+			m.Bookmarks.Add(lines[m.SelectedLine], "")
+		}
+	}
+}
+
+// toggleBookmarkView переключает режим просмотра bookmarks.
+func (m *Model) toggleBookmarkView() {
+	if m.FilterMode == FilterNone {
+		m.BookmarkView = !m.BookmarkView
+	}
+}
+
+// exportBookmarks экспортирует bookmarks в файл.
+func (m *Model) exportBookmarks() {
+	if m.FilterMode == FilterNone && !m.BookmarkView {
+		m.Bookmarks.Export("bookmarks.yaml")
+	}
 }
 
 // toggleFilterMode переключает режимы фильтрации.

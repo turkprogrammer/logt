@@ -4,8 +4,8 @@
 
 ![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-[![Tests](https://img.shields.io/badge/Tests-78%20passing-44b526?style=for-the-badge)]()
-![Version](https://img.shields.io/badge/Version-0.3.1-blue?style=for-the-badge)
+[![Tests](https://img.shields.io/badge/Tests-92%20passing-44b526?style=for-the-badge)]()
+![Version](https://img.shields.io/badge/Version-0.4.0-blue?style=for-the-badge)
 
 ## 🚀 Возможности
 
@@ -16,6 +16,8 @@
 - **Log Forwarding** — Экспорт отфильтрованных логов в файл (`--forward`) или stdout (`--forward -`)
 - **Time Filtering** — Фильтрация по времени (`--since 1h`, `--until 2024-01-15`)
 - **JSON Path Filtering** — Мощная фильтрация JSON (`--json '.level == "error"'`)
+- **Headless Mode** — CLI режим без TUI (`--headless --stats`)
+- **Bookmarks** — Сохранение важных строк (`m`, `M`, `e`)
 
 ### Просмотр
 - **Live Tail** — Автопрокрутка при поступлении новых строк
@@ -231,6 +233,15 @@ logt
 
 # Stdin от другой команды
 kubectl logs deployment/app | logt
+
+# Headless режим + статистика
+logt --headless --stats ./app.log
+
+# Headless режим + последние N строк
+logt --headless --tail 100 ./app.log
+
+# Headless + stats + time filter
+logt --headless --stats --tail 50 --since 1h ./app.log
 ```
 
 ## ⌨️ Горячие клавиши
@@ -251,6 +262,9 @@ kubectl logs deployment/app | logt
 | `n` | Следующее совпадение |
 | `N` | Предыдущее совпадение |
 | `Tab` | Переключить панель источников |
+| `m` | Bookmark текущую строку |
+| `M` | Показать bookmarks |
+| `e` | Export bookmarks в YAML |
 | `q` | Выход |
 
 ## 🏗️ Архитектура

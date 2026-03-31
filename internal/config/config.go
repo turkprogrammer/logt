@@ -28,6 +28,10 @@ type Config struct {
 	Since      string   `mapstructure:"since"`
 	Until      string   `mapstructure:"until"`
 	JsonFilter string   `mapstructure:"json-filter"`
+	Headless   bool     `mapstructure:"headless"`
+	Tail       int      `mapstructure:"tail"`
+	Stats      bool     `mapstructure:"stats"`
+	Export     string   `mapstructure:"export"`
 }
 
 // DefaultConfig возвращает конфигурацию по умолчанию.
@@ -40,6 +44,10 @@ func DefaultConfig() *Config {
 		Path:       "",
 		Forward:    "",
 		Sources:    []string{},
+		Headless:   false,
+		Tail:       0, // 0 = все строки
+		Stats:      false,
+		Export:     "",
 	}
 }
 
@@ -70,6 +78,10 @@ func Load() (*Config, error) {
 	pflag.CommandLine.StringP("since", "S", "", "Фильтр с времени (1h, 30m, 2024-01-15)")
 	pflag.CommandLine.StringP("until", "U", "", "Фильтр по время (1h, 30m, 2024-01-15)")
 	pflag.CommandLine.StringP("json", "j", "", "JSON Path фильтр (например: '.level == \"error\"')")
+	pflag.CommandLine.BoolP("headless", "H", false, "Режим без TUI (CLI)")
+	pflag.CommandLine.IntP("tail", "n", 0, "Последние N строк (0 = все)")
+	pflag.CommandLine.BoolP("stats", "s", false, "Вывод статистики")
+	pflag.CommandLine.StringP("export", "e", "", "Экспорт bookmarks в файл")
 	pflag.CommandLine.BoolP("version", "v", false, "Версия")
 	pflag.CommandLine.BoolP("help", "h", false, "Помощь")
 
@@ -82,6 +94,10 @@ func Load() (*Config, error) {
 	viper.BindPFlag("since", pflag.CommandLine.Lookup("since"))
 	viper.BindPFlag("until", pflag.CommandLine.Lookup("until"))
 	viper.BindPFlag("json-filter", pflag.CommandLine.Lookup("json"))
+	viper.BindPFlag("headless", pflag.CommandLine.Lookup("headless"))
+	viper.BindPFlag("tail", pflag.CommandLine.Lookup("tail"))
+	viper.BindPFlag("stats", pflag.CommandLine.Lookup("stats"))
+	viper.BindPFlag("export", pflag.CommandLine.Lookup("export"))
 
 	pflag.Parse()
 
@@ -100,6 +116,10 @@ func Load() (*Config, error) {
 		Since:      viper.GetString("since"),
 		Until:      viper.GetString("until"),
 		JsonFilter: viper.GetString("json-filter"),
+		Headless:   viper.GetBool("headless"),
+		Tail:       viper.GetInt("tail"),
+		Stats:      viper.GetBool("stats"),
+		Export:     viper.GetString("export"),
 	}
 
 	if cfg.BufferSize <= 0 {

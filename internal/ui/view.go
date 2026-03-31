@@ -75,6 +75,11 @@ func (m *Model) View() string {
 		return m.renderJSONView()
 	}
 
+	// Bookmark view режим
+	if m.BookmarkView {
+		return m.renderBookmarkView()
+	}
+
 	var sb strings.Builder
 
 	if m.FilterMode != FilterNone {
@@ -274,6 +279,54 @@ func (m *Model) renderSourcePanel() string {
 		sb.WriteString(line)
 		sb.WriteString("\n")
 	}
+
+	return sb.String()
+}
+
+// renderBookmarkView рендерит режим просмотра bookmarks.
+func (m *Model) renderBookmarkView() string {
+	lines := m.VisibleBookmarkLines()
+
+	if len(lines) == 0 {
+		emptyMsg := EmptyStyle.Width(m.Width).Height(m.Height).Render("No bookmarks\n\nPress 'm' to bookmark a line")
+		return emptyMsg
+	}
+
+	var sb strings.Builder
+
+	// Заголовок
+	header := fmt.Sprintf(" Bookmarks (%d) ", len(lines))
+	sb.WriteString(lipgloss.NewStyle().
+		Background(ColorMauve).
+		Foreground(ColorBg).
+		Bold(true).
+		Padding(0, 1).
+		Render(header))
+	sb.WriteString("\n")
+
+	// Вывод bookmarks
+	for i, line := range lines {
+		style := GetLevelStyle(line.Level)
+		if i == m.SelectedLine {
+			style = style.Background(ColorOverlay).Foreground(ColorText)
+		}
+
+		lineNum := fmt.Sprintf("%4d ", i+1)
+		content := truncate(line.Content, m.Width-20)
+
+		lineStr := fmt.Sprintf("%s%s %s",
+			lipgloss.NewStyle().Foreground(ColorOverlay).Render(lineNum),
+			style.Render(content),
+			style.Render(getLevelTag(line.Level)),
+		)
+
+		sb.WriteString(lineStr)
+		sb.WriteString("\n")
+	}
+
+	// Подсказка
+	sb.WriteString("\n")
+	sb.WriteString(StatusBarStyle.Width(m.Width).Render("ESC: close | m: add | e: export | ↑↓: navigate"))
 
 	return sb.String()
 }

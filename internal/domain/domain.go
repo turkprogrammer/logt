@@ -473,43 +473,65 @@ func (rb *RingBuffer) GetFilteredCombined(
 	}
 	filtered := make([]LogLine, 0, len(lines))
 	for _, line := range lines {
-		// Фильтрация по источникам
-		if len(includeSources) > 0 {
-			if !includeSources[line.Source.Path] {
-				continue
-			}
-		}
-		// Фильтрация по времени
-		if since != nil && line.Timestamp.Before(*since) {
+		if !rb.matchSource(line, includeSources) {
 			continue
 		}
-		if until != nil && line.Timestamp.After(*until) {
+		if !rb.matchTime(line, since, until) {
 			continue
 		}
-		// JSON Path фильтрация
-		if jsonFilter != nil {
-			if !line.IsJSON {
-				continue
-			}
-			data, ok := line.Parsed.(map[string]any)
-			if !ok || data == nil {
-				continue
-			}
-			if !jsonpath.Execute(jsonFilter, data) {
-				continue
-			}
+		if !rb.matchJSON(line, jsonFilter) {
+			continue
 		}
-		// Текстовая фильтрация
-		if filter != "" {
-			lowerContent := strings.ToLower(line.Content)
-			lowerFilter := strings.ToLower(filter)
-			if !strings.Contains(lowerContent, lowerFilter) {
-				continue
-			}
+		if !rb.matchText(line, filter) {
+			continue
 		}
 		filtered = append(filtered, line)
 	}
 	return filtered
+}
+
+// matchSource проверяет соответствие источнику.
+func (rb *RingBuffer) matchSource(line LogLine, includeSources map[string]bool) bool {
+	if len(includeSources) == 0 {
+		return true
+	}
+	return includeSources[line.Source.Path]
+}
+
+// matchTime проверяет соответствие временному диапазону.
+func (rb *RingBuffer) matchTime(line LogLine, since, until *time.Time) bool {
+	if since != nil && line.Timestamp.Before(*since) {
+		return false
+	}
+	if until != nil && line.Timestamp.After(*until) {
+		return false
+	}
+	return true
+}
+
+// matchJSON проверяет соответствие JSON Path фильтру.
+func (rb *RingBuffer) matchJSON(line LogLine, jsonFilter *jsonpath.Filter) bool {
+	if jsonFilter == nil {
+		return true
+	}
+	if !line.IsJSON {
+		return false
+	}
+	data, ok := line.Parsed.(map[string]any)
+	if !ok || data == nil {
+		return false
+	}
+	return jsonpath.Execute(jsonFilter, data)
+}
+
+// matchText проверяет соответствие текстовому фильтру.
+func (rb *RingBuffer) matchText(line LogLine, filter string) bool {
+	if filter == "" {
+		return true
+	}
+	lowerContent := strings.ToLower(line.Content)
+	lowerFilter := strings.ToLower(filter)
+	return strings.Contains(lowerContent, lowerFilter)
 }
 
 // Len возвращает текущее количество строк в буфере.
