@@ -2,6 +2,8 @@
 logt
 logt.exe
 *.exe
+!cmd/logt/*.go
+!cmd/logt/*.mod
 
 # IDE
 .idea/
