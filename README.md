@@ -4,7 +4,7 @@
 
 ![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-[![Tests](https://img.shields.io/badge/Tests-110%20passing-44b526?style=for-the-badge)]()
+[![Tests](https://img.shields.io/badge/Tests-166%20passing-44b526?style=for-the-badge)]()
 ![Version](https://img.shields.io/badge/Version-0.5.0-blue?style=for-the-badge)
 
 ## 🚀 Возможности
@@ -371,6 +371,10 @@ LOGT_THEME=dark
 -U, --until string       Фильтр по время (1h, 30m, 2024-01-15)
 -j, --json string        JSON Path фильтр (.level == "error")
 -c, --color string       Цветовой режим (always, never, auto)
+-H, --headless           Режим без TUI (CLI)
+-n, --tail int           Последние N строк (0 = все)
+-s, --stats              Вывод статистики
+-e, --export string      Экспорт bookmarks в файл
 -v, --version            Версия
 -h, --help               Помощь
 ```
@@ -388,7 +392,7 @@ LOGT_THEME=dark
 
 ## 🐛 Известные ограничения
 
-- Windows-only file watching (polling, не inotify)
+- File watching: inotify (Linux), FSEvents (macOS), polling (Windows)
 - Нет удалённой поддержки логов (в планах: HTTP forwarding)
 
 ## 🤝 Вклад
