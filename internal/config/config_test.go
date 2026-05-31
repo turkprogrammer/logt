@@ -19,40 +19,6 @@ func TestDefaultConfig(t *testing.T) {
 	}
 }
 
-func TestSourcesFromConfig_Path(t *testing.T) {
-	cfg := &Config{
-		Path: "app.log,debug.log",
-	}
-
-	sources := cfg.SourcesFromConfig()
-	if len(sources) != 2 {
-		t.Errorf("Expected 2 sources, got %d", len(sources))
-	}
-}
-
-func TestSourcesFromConfig_Sources(t *testing.T) {
-	cfg := &Config{
-		Sources: []string{"/var/log/*.log"},
-	}
-
-	sources := cfg.SourcesFromConfig()
-	if len(sources) != 1 {
-		t.Errorf("Expected 1 source, got %d", len(sources))
-	}
-}
-
-func TestSourcesFromConfig_Combined(t *testing.T) {
-	cfg := &Config{
-		Path:    "app.log",
-		Sources: []string{"/var/log/*.log"},
-	}
-
-	sources := cfg.SourcesFromConfig()
-	if len(sources) != 2 {
-		t.Errorf("Expected 2 sources, got %d", len(sources))
-	}
-}
-
 func TestLoad_NoConfigFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldCwd, _ := os.Getwd()

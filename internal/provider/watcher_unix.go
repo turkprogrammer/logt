@@ -5,10 +5,15 @@ package provider
 
 import (
 	"bufio"
+	"context"
 	"fmt"
+	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/radovskyb/watcher"
@@ -23,8 +28,14 @@ type WatcherProvider struct {
 	mu             sync.RWMutex
 	includeSources map[string]bool
 	offsets        map[string]int64
-	closed         bool
-	watcher        *watcher.Watcher
+	closed         atomic.Bool
+	watcher *watcher.Watcher
+	wg      sync.WaitGroup
+}
+
+// Buffer возвращает nil для WatcherProvider (буфер управляется MultiProvider).
+func (wp *WatcherProvider) Buffer() *domain.RingBuffer {
+	return nil
 }
 
 // NewWatcherProvider создаёт новый WatcherProvider с использованием inotify (Linux) или FSEvents (macOS).
@@ -43,7 +54,7 @@ func NewWatcherProvider() *WatcherProvider {
 }
 
 // Watch начинает слежение за файлами по указанным путям.
-func (wp *WatcherProvider) Watch(paths []string) error {
+func (wp *WatcherProvider) Watch(ctx context.Context, paths []string) error {
 	for _, pathPattern := range paths {
 		matches, err := filepath.Glob(pathPattern)
 		if err != nil {
@@ -53,17 +64,18 @@ func (wp *WatcherProvider) Watch(paths []string) error {
 		for _, path := range matches {
 			absPath, err := filepath.Abs(path)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to resolve absolute path for %s: %v\n", path, err)
+				slog.Warn("failed to resolve absolute path", "path", path, "error", err)
 				absPath = path
 			}
 
 			if err := wp.addWatch(absPath); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to watch %s: %v\n", path, err)
+				slog.Warn("failed to watch file", "path", path, "error", err)
 			}
 		}
 	}
 
-	go wp.watchLoop()
+	wp.wg.Add(1)
+	go wp.watchLoop(ctx)
 
 	return nil
 }
@@ -99,9 +111,11 @@ func (wp *WatcherProvider) addWatch(path string) error {
 }
 
 // watchLoop обрабатывает события от watcher.
-func (wp *WatcherProvider) watchLoop() {
+func (wp *WatcherProvider) watchLoop(ctx context.Context) {
+	defer wp.wg.Done()
+
 	// При первом запуске читаем существующие файлы
-	wp.readExistingFiles()
+	wp.readExistingFiles(ctx)
 
 	for {
 		select {
@@ -118,7 +132,7 @@ func (wp *WatcherProvider) watchLoop() {
 
 			switch {
 			case event.Op&watcher.Create == watcher.Create:
-				wp.handleNewFile(path)
+				wp.handleNewFile(ctx, path)
 			case event.Op&watcher.Write == watcher.Write:
 				wp.handleFileWrite(path)
 			case event.Op&watcher.Remove == watcher.Remove:
@@ -131,16 +145,18 @@ func (wp *WatcherProvider) watchLoop() {
 			if !ok {
 				return
 			}
-			fmt.Fprintf(os.Stderr, "Watcher error: %v\n", err)
+			slog.Error("watcher error", "error", err)
 
 		case <-wp.watcher.Closed:
+			return
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
 // readExistingFiles читает содержимое всех файлов при старте.
-func (wp *WatcherProvider) readExistingFiles() {
+func (wp *WatcherProvider) readExistingFiles(ctx context.Context) {
 	wp.mu.RLock()
 	paths := make([]string, 0, len(wp.sources))
 	for path := range wp.sources {
@@ -149,12 +165,12 @@ func (wp *WatcherProvider) readExistingFiles() {
 	wp.mu.RUnlock()
 
 	for _, path := range paths {
-		wp.watchFile(path)
+		wp.watchFile(ctx, path)
 	}
 }
 
 // watchFile читает существующее содержимое файла при первом запуске.
-func (wp *WatcherProvider) watchFile(path string) {
+func (wp *WatcherProvider) watchFile(ctx context.Context, path string) {
 	wp.mu.Lock()
 	if _, exists := wp.offsets[path]; exists {
 		wp.mu.Unlock()
@@ -178,7 +194,7 @@ func (wp *WatcherProvider) watchFile(path string) {
 		Path: path,
 	}
 
-	domain.ReadExistingContent(file, source, wp.parser, wp.logChan)
+	domain.ReadExistingContent(ctx, file, source, wp.parser, wp.logChan)
 
 	wp.mu.Lock()
 	wp.offsets[path] = stat.Size()
@@ -186,7 +202,7 @@ func (wp *WatcherProvider) watchFile(path string) {
 }
 
 // handleNewFile обрабатывает создание нового файла.
-func (wp *WatcherProvider) handleNewFile(path string) {
+func (wp *WatcherProvider) handleNewFile(ctx context.Context, path string) {
 	wp.mu.Lock()
 	if wp.sources[path] {
 		wp.mu.Unlock()
@@ -196,7 +212,7 @@ func (wp *WatcherProvider) handleNewFile(path string) {
 	wp.includeSources[path] = true
 	wp.mu.Unlock()
 
-	wp.watchFile(path)
+	wp.watchFile(ctx, path)
 }
 
 // handleFileWrite обрабатывает запись в файл.
@@ -254,7 +270,9 @@ func (wp *WatcherProvider) openFileAndGetStat(path string) (int64, *os.File, err
 
 // readAndSendLines читает новые строки и отправляет в канал.
 func (wp *WatcherProvider) readAndSendLines(file *os.File, offset int64, path string) {
-	file.Seek(offset, 0)
+	if _, err := file.Seek(offset, 0); err != nil {
+		return
+	}
 	reader := bufio.NewReader(file)
 
 	source := domain.Source{
@@ -274,9 +292,13 @@ func (wp *WatcherProvider) readAndSendLines(file *os.File, offset int64, path st
 		if line != "" {
 			logLine := wp.parser.Parse(line, source)
 			if logLine != nil {
+				t := time.NewTimer(10 * time.Millisecond)
 				select {
 				case wp.logChan <- *logLine:
-				case <-time.After(10 * time.Millisecond):
+					if !t.Stop() {
+						<-t.C
+					}
+				case <-t.C:
 				}
 			}
 		}
@@ -349,27 +371,21 @@ func (wp *WatcherProvider) EnabledSources() map[string]bool {
 	wp.mu.RLock()
 	defer wp.mu.RUnlock()
 
-	enabled := make(map[string]bool)
-	for k, v := range wp.includeSources {
-		enabled[k] = v
-	}
-	return enabled
+	return maps.Clone(wp.includeSources)
 }
 
 // Close закрывает WatcherProvider.
 func (wp *WatcherProvider) Close() error {
-	wp.mu.Lock()
-	defer wp.mu.Unlock()
-
-	if wp.closed {
+	if wp.closed.Load() {
 		return nil
 	}
-	wp.closed = true
+	wp.closed.Store(true)
 
 	if err := wp.watcher.Close(); err != nil {
 		return err
 	}
 
+	wp.wg.Wait()
 	close(wp.logChan)
 	return nil
 }

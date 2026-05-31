@@ -300,9 +300,3 @@ func (m *Model) handleJSONViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	return m, nil
 }
-
-// FuzzyMatch проксирует вызов в domain пакет.
-var FuzzyMatch = domain.FuzzyMatch
-
-// HighlightMatches проксирует вызов в domain пакет.
-var HighlightMatches = domain.HighlightMatches

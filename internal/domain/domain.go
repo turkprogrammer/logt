@@ -8,6 +8,7 @@ package domain
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -42,13 +43,13 @@ type Source struct {
 
 // LogLine представляет одну строку лога с распарсенными данными.
 type LogLine struct {
-	Timestamp time.Time   // Время из лога
-	Level     LogLevel    // Уровень логирования
-	Source    Source      // Источник лога
-	Content   string      // Текстовое содержимое строки
-	Raw       string      // Исходная сырая строка
-	Parsed    interface{} // Распарсенные данные (для JSON)
-	IsJSON    bool        // Флаг, что строка является JSON
+	Timestamp time.Time // Время из лога
+	Level     LogLevel  // Уровень логирования
+	Source    Source    // Источник лога
+	Content   string    // Текстовое содержимое строки
+	Raw       string    // Исходная сырая строка
+	Parsed    any       // Распарсенные данные (для JSON)
+	IsJSON    bool      // Флаг, что строка является JSON
 }
 
 // Parser определяет интерфейс для парсеров логов.
@@ -74,27 +75,23 @@ var timestampPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`^\d{2}/\w{3}/\d{4}:\d{2}:\d{2}:\d{2}`),
 }
 
+// Индексы levelPatterns для быстрого определения уровня.
+var levelByIndex = []LogLevel{
+	LevelFatal,
+	LevelError,
+	LevelWarn,
+	LevelInfo,
+	LevelDebug,
+	LevelTrace,
+}
+
 // DetectLevel определяет уровень логирования по тексту строки.
 // Возвращает LevelUnknown если уровень не определён.
-// Поиск регистронезависимый.
 func DetectLevel(line string) LogLevel {
 	upper := strings.ToUpper(line)
-	for _, pattern := range levelPatterns {
+	for i, pattern := range levelPatterns {
 		if pattern.MatchString(upper) {
-			switch {
-			case strings.Contains(upper, "FATAL") || strings.Contains(upper, "CRITICAL"):
-				return LevelFatal
-			case strings.Contains(upper, "ERROR") || strings.Contains(upper, "ERR"):
-				return LevelError
-			case strings.Contains(upper, "WARN"):
-				return LevelWarn
-			case strings.Contains(upper, "INFO"):
-				return LevelInfo
-			case strings.Contains(upper, "DEBUG") || strings.Contains(upper, "DBG"):
-				return LevelDebug
-			case strings.Contains(upper, "TRACE") || strings.Contains(upper, "VERBOSE"):
-				return LevelTrace
-			}
+			return levelByIndex[i]
 		}
 	}
 	return LevelUnknown
@@ -165,7 +162,7 @@ func (mp *MultiParser) Parse(line string, source Source) *LogLine {
 			return p.Parse(line, source)
 		}
 	}
-	return PlainParser{}.Parse(line, source)
+	return (&PlainParser{}).Parse(line, source)
 }
 
 // JSONParser парсит JSON-форматированные логи.
@@ -173,7 +170,7 @@ type JSONParser struct{}
 
 // Parse парсит JSON строку в LogLine.
 func (p *JSONParser) Parse(line string, source Source) *LogLine {
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal([]byte(line), &data); err != nil {
 		return nil
 	}
@@ -300,7 +297,7 @@ func (p *LogfmtParser) CanParse(line string) bool {
 type PlainParser struct{}
 
 // Parse парсит plain text строку в LogLine.
-func (p PlainParser) Parse(line string, source Source) *LogLine {
+func (p *PlainParser) Parse(line string, source Source) *LogLine {
 	return &LogLine{
 		Source:    source,
 		Raw:       line,
@@ -369,94 +366,6 @@ func (rb *RingBuffer) GetAll() []LogLine {
 		copy(result[rb.size-rb.head:], rb.lines[:rb.head])
 	}
 	return result
-}
-
-// GetFiltered возвращает отфильтрованные строки.
-// Фильтрация по тексту (без учёта регистра) и/или по источникам.
-func (rb *RingBuffer) GetFiltered(filter string, includeSources map[string]bool) []LogLine {
-	lines := rb.GetAll()
-	if filter == "" && len(includeSources) == 0 {
-		return lines
-	}
-	filtered := make([]LogLine, 0, len(lines))
-	for _, line := range lines {
-		if len(includeSources) > 0 {
-			if !includeSources[line.Source.Path] {
-				continue
-			}
-		}
-		if filter != "" {
-			lowerContent := strings.ToLower(line.Content)
-			lowerFilter := strings.ToLower(filter)
-			if !strings.Contains(lowerContent, lowerFilter) {
-				continue
-			}
-		}
-		filtered = append(filtered, line)
-	}
-	return filtered
-}
-
-// GetFilteredWithTime возвращает отфильтрованные строки с фильтрацией по времени.
-// Фильтрация по тексту, источникам и временному диапазону [since, until].
-func (rb *RingBuffer) GetFilteredWithTime(
-	filter string,
-	includeSources map[string]bool,
-	since, until *time.Time,
-) []LogLine {
-	lines := rb.GetAll()
-	if filter == "" && len(includeSources) == 0 && since == nil && until == nil {
-		return lines
-	}
-	filtered := make([]LogLine, 0, len(lines))
-	for _, line := range lines {
-		if len(includeSources) > 0 {
-			if !includeSources[line.Source.Path] {
-				continue
-			}
-		}
-		if since != nil && line.Timestamp.Before(*since) {
-			continue
-		}
-		if until != nil && line.Timestamp.After(*until) {
-			continue
-		}
-		if filter != "" {
-			lowerContent := strings.ToLower(line.Content)
-			lowerFilter := strings.ToLower(filter)
-			if !strings.Contains(lowerContent, lowerFilter) {
-				continue
-			}
-		}
-		filtered = append(filtered, line)
-	}
-	return filtered
-}
-
-// GetFilteredByJson возвращает отфильтрованные строки с фильтрацией по JSON Path.
-// Фильтрация по JSON Path выражению (например, `.level == "error"`).
-func (rb *RingBuffer) GetFilteredByJson(jsonFilter *jsonpath.Filter) []LogLine {
-	lines := rb.GetAll()
-	if jsonFilter == nil {
-		return lines
-	}
-	filtered := make([]LogLine, 0, len(lines))
-	for _, line := range lines {
-		// Применяем фильтр только к JSON строкам
-		if !line.IsJSON {
-			continue
-		}
-		// Извлекаем данные для фильтрации
-		data, ok := line.Parsed.(map[string]any)
-		if !ok || data == nil {
-			continue
-		}
-		// Применяем фильтр
-		if jsonpath.Execute(jsonFilter, data) {
-			filtered = append(filtered, line)
-		}
-	}
-	return filtered
 }
 
 // GetFilteredCombined возвращает отфильтрованные строки с комбинацией фильтров.
@@ -541,14 +450,6 @@ func (rb *RingBuffer) Len() int {
 	return rb.count
 }
 
-// Clear очищает буфер.
-func (rb *RingBuffer) Clear() {
-	rb.mu.Lock()
-	defer rb.mu.Unlock()
-	rb.head = 0
-	rb.count = 0
-}
-
 // GetLastN возвращает последние N строк из буфера.
 func (rb *RingBuffer) GetLastN(n int) []LogLine {
 	all := rb.GetAll()
@@ -558,67 +459,9 @@ func (rb *RingBuffer) GetLastN(n int) []LogLine {
 	return all[len(all)-n:]
 }
 
-// FuzzyMatch проверяет, содержит ли текст паттерн (без учёта регистра).
-func FuzzyMatch(text, pattern string) bool {
-	text = strings.ToLower(text)
-	pattern = strings.ToLower(pattern)
-
-	if strings.Contains(text, pattern) {
-		return true
-	}
-
-	return fuzzyMatchRecursive(text, pattern)
-}
-
-// fuzzyMatchRecursive рекурсивная реализация fuzzy matching.
-func fuzzyMatchRecursive(text, pattern string) bool {
-	if pattern == "" {
-		return true
-	}
-	if text == "" {
-		return false
-	}
-
-	if text[0] == pattern[0] {
-		return fuzzyMatchRecursive(text[1:], pattern[1:])
-	}
-	return fuzzyMatchRecursive(text[1:], pattern)
-}
-
-// HighlightMatches возвращает текст с подсветкой совпадений.
-// Совпадения обрамляются маркерами \x02 и \x03.
-func HighlightMatches(text, pattern string) string {
-	if pattern == "" {
-		return text
-	}
-
-	lowerText := strings.ToLower(text)
-	lowerPattern := strings.ToLower(pattern)
-
-	var result strings.Builder
-	lastEnd := 0
-
-	for {
-		idx := strings.Index(lowerText[lastEnd:], lowerPattern)
-		if idx == -1 {
-			result.WriteString(text[lastEnd:])
-			break
-		}
-
-		actualIdx := lastEnd + idx
-		result.WriteString(text[lastEnd:actualIdx])
-		result.WriteString("\x02")
-		result.WriteString(text[actualIdx : actualIdx+len(pattern)])
-		result.WriteString("\x03")
-		lastEnd = actualIdx + len(pattern)
-	}
-
-	return result.String()
-}
-
 // ReadExistingContent читает содержимое файла и отправляет строки в канал.
 // Используется провайдерами для начального чтения файлов.
-func ReadExistingContent(file *os.File, source Source, parser *MultiParser, logChan chan<- LogLine) {
+func ReadExistingContent(ctx context.Context, file *os.File, source Source, parser *MultiParser, logChan chan<- LogLine) {
 	reader := bufio.NewReader(file)
 
 	for {
@@ -627,7 +470,7 @@ func ReadExistingContent(file *os.File, source Source, parser *MultiParser, logC
 			if err == io.EOF {
 				break
 			}
-			continue
+			break
 		}
 
 		line = strings.TrimSuffix(line, "\n")
@@ -636,9 +479,18 @@ func ReadExistingContent(file *os.File, source Source, parser *MultiParser, logC
 		if line != "" {
 			logLine := parser.Parse(line, source)
 			if logLine != nil {
+				t := time.NewTimer(10 * time.Millisecond)
 				select {
 				case logChan <- *logLine:
-				case <-time.After(10 * time.Millisecond):
+					if !t.Stop() {
+						<-t.C
+					}
+				case <-t.C:
+				case <-ctx.Done():
+					if !t.Stop() {
+						<-t.C
+					}
+					return
 				}
 			}
 		}

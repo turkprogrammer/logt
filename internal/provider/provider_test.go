@@ -1,8 +1,10 @@
 package provider
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -58,7 +60,7 @@ func TestFileProviderWatch(t *testing.T) {
 
 	provider := NewFileProvider()
 
-	if err := provider.Watch([]string{testFile}); err != nil {
+	if err := provider.Watch(context.Background(), []string{testFile}); err != nil {
 		t.Fatalf("Failed to watch file: %v", err)
 	}
 	defer provider.Close()
@@ -102,7 +104,7 @@ func TestFileProviderRotation(t *testing.T) {
 
 	provider := NewFileProvider()
 
-	if err := provider.Watch([]string{testFile}); err != nil {
+	if err := provider.Watch(context.Background(), []string{testFile}); err != nil {
 		t.Fatalf("Failed to watch file: %v", err)
 	}
 	defer provider.Close()
@@ -170,10 +172,10 @@ func TestMultiProvider(t *testing.T) {
 	fp1 := NewFileProvider()
 	fp2 := NewFileProvider()
 
-	if err := fp1.Watch([]string{file1}); err != nil {
+	if err := fp1.Watch(context.Background(), []string{file1}); err != nil {
 		t.Fatalf("Failed to watch file1: %v", err)
 	}
-	if err := fp2.Watch([]string{file2}); err != nil {
+	if err := fp2.Watch(context.Background(), []string{file2}); err != nil {
 		t.Fatalf("Failed to watch file2: %v", err)
 	}
 
@@ -207,7 +209,7 @@ func TestStdinProvider(t *testing.T) {
 	os.Stdin = reader
 
 	provider := NewStdinProvider()
-	if err := provider.Start(); err != nil {
+	if err := provider.Start(context.Background()); err != nil {
 		t.Fatalf("Failed to start provider: %v", err)
 	}
 	defer provider.Close()
@@ -247,7 +249,7 @@ func TestToggleSource(t *testing.T) {
 	provider := NewFileProvider()
 	defer provider.Close()
 
-	if err := provider.Watch([]string{testFile}); err != nil {
+	if err := provider.Watch(context.Background(), []string{testFile}); err != nil {
 		t.Fatalf("Failed to watch file: %v", err)
 	}
 
@@ -277,7 +279,7 @@ func BenchmarkExpandPaths(b *testing.B) {
 
 	// Создаём 100 файлов
 	for i := 0; i < 100; i++ {
-		path := filepath.Join(tmpDir, "test"+string(rune(i))+".log")
+		path := filepath.Join(tmpDir, "test"+strconv.Itoa(i)+".log")
 		if err := os.WriteFile(path, []byte("test"), 0644); err != nil {
 			b.Fatalf("Failed to create test file: %v", err)
 		}
@@ -310,7 +312,7 @@ func BenchmarkFileProviderThroughput(b *testing.B) {
 	provider := NewFileProvider()
 	defer provider.Close()
 
-	if err := provider.Watch([]string{testFile}); err != nil {
+	if err := provider.Watch(context.Background(), []string{testFile}); err != nil {
 		b.Fatalf("Failed to watch file: %v", err)
 	}
 

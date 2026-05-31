@@ -3,12 +3,16 @@ package provider
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
+	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/turkprogrammer/logt/internal/domain"
@@ -22,7 +26,8 @@ type Provider interface {
 	ToggleSource(path string)
 	EnabledSources() map[string]bool
 	IsSourceEnabled(path string) bool
-	Watch(paths []string) error
+	Watch(ctx context.Context, paths []string) error
+	Buffer() *domain.RingBuffer
 }
 
 // MultiProvider объединяет несколько провайдеров в один.
@@ -31,14 +36,14 @@ type MultiProvider struct {
 	logChan   chan domain.LogLine
 	buffer    *domain.RingBuffer
 	mu        sync.RWMutex
+	wg        sync.WaitGroup
 }
 
 // NewMultiProvider создаёт новый MultiProvider.
 func NewMultiProvider() *MultiProvider {
 	return &MultiProvider{
-		providers: make([]Provider, 0),
-		logChan:   make(chan domain.LogLine, 1000),
-		buffer:    domain.NewRingBuffer(5000),
+		logChan: make(chan domain.LogLine, 1000),
+		buffer:  domain.NewRingBuffer(5000),
 	}
 }
 
@@ -48,18 +53,16 @@ func (mp *MultiProvider) AddProvider(p Provider) {
 	mp.providers = append(mp.providers, p)
 	mp.mu.Unlock()
 
+	mp.wg.Add(1)
 	go mp.forwardLogs(p)
 }
 
 // forwardLogs пересылает логи из провайдера в основной канал.
 func (mp *MultiProvider) forwardLogs(p Provider) {
+	defer mp.wg.Done()
 	for logLine := range p.LogChan() {
-		select {
-		case mp.logChan <- logLine:
-			mp.buffer.Add(logLine)
-		default:
-			mp.buffer.Add(logLine)
-		}
+		mp.logChan <- logLine
+		mp.buffer.Add(logLine)
 	}
 }
 
@@ -109,9 +112,7 @@ func (mp *MultiProvider) EnabledSources() map[string]bool {
 
 	enabled := make(map[string]bool)
 	for _, p := range mp.providers {
-		for k, v := range p.EnabledSources() {
-			enabled[k] = v
-		}
+		maps.Copy(enabled, p.EnabledSources())
 	}
 	return enabled
 }
@@ -132,17 +133,18 @@ func (mp *MultiProvider) IsSourceEnabled(path string) bool {
 // Close закрывает все провайдеры.
 func (mp *MultiProvider) Close() error {
 	mp.mu.Lock()
-	defer mp.mu.Unlock()
-
 	for _, p := range mp.providers {
 		p.Close()
 	}
+	mp.mu.Unlock()
+
+	mp.wg.Wait()
 	close(mp.logChan)
 	return nil
 }
 
 // Watch запускает watching на всех провайдерах.
-func (mp *MultiProvider) Watch(paths []string) error {
+func (mp *MultiProvider) Watch(ctx context.Context, paths []string) error {
 	// MultiProvider не watchит пути напрямую,
 	// это делают добавленные в него провайдеры
 	return nil
@@ -156,7 +158,9 @@ type FileProvider struct {
 	mu             sync.RWMutex
 	includeSources map[string]bool
 	offsets        map[string]int64
-	closed         bool
+	closed         atomic.Bool
+	done           chan struct{}
+	wg             sync.WaitGroup
 }
 
 // NewFileProvider создаёт новый FileProvider.
@@ -167,19 +171,25 @@ func NewFileProvider() *FileProvider {
 		sources:        make(map[string]*os.File),
 		includeSources: make(map[string]bool),
 		offsets:        make(map[string]int64),
+		done:           make(chan struct{}),
 	}
 }
 
+// Buffer возвращает nil для FileProvider (буфер управляется MultiProvider).
+func (fp *FileProvider) Buffer() *domain.RingBuffer {
+	return nil
+}
+
 // Watch начинает слежение за файлами по указанным путям.
-func (fp *FileProvider) Watch(paths []string) error {
+func (fp *FileProvider) Watch(ctx context.Context, paths []string) error {
 	for _, pathPattern := range paths {
 		matches, err := filepath.Glob(pathPattern)
 		if err != nil {
 			return fmt.Errorf("invalid glob pattern %s: %w", pathPattern, err)
 		}
 		for _, path := range matches {
-			if err := fp.watchFile(path); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to watch %s: %v\n", path, err)
+			if err := fp.watchFile(ctx, path); err != nil {
+				slog.Warn("failed to watch file", "path", path, "error", err)
 			}
 		}
 	}
@@ -187,7 +197,7 @@ func (fp *FileProvider) Watch(paths []string) error {
 }
 
 // watchFile открывает файл и начинает за ним следить.
-func (fp *FileProvider) watchFile(path string) error {
+func (fp *FileProvider) watchFile(ctx context.Context, path string) error {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
@@ -210,29 +220,45 @@ func (fp *FileProvider) watchFile(path string) error {
 	fp.includeSources[path] = true
 	fp.offsets[path] = stat.Size()
 
-	go fp.watchLoop(path, file, true)
+	fp.wg.Add(1)
+	go fp.watchLoop(ctx, path, file, true)
 
 	return nil
 }
 
 // watchLoop основной цикл слежения за файлом.
-func (fp *FileProvider) watchLoop(path string, file *os.File, initialRead bool) {
+func (fp *FileProvider) watchLoop(ctx context.Context, path string, file *os.File, initialRead bool) {
+	defer fp.wg.Done()
+
 	source := domain.Source{
 		Name: filepath.Base(path),
 		Path: path,
 	}
 
 	if initialRead {
-		fp.readExistingContent(file, source)
+		fp.readExistingContent(ctx, file, source)
 	}
 
 	reader := bufio.NewReader(file)
 	currentOffset := fp.getOffset(path)
 
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
 	for {
+		select {
+		case <-fp.done:
+			return
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+
 		newSize, err := fp.getFileSize(file)
 		if err != nil {
-			time.Sleep(100 * time.Millisecond)
+			if fp.isClosed() {
+				return
+			}
 			continue
 		}
 
@@ -242,11 +268,14 @@ func (fp *FileProvider) watchLoop(path string, file *os.File, initialRead bool) 
 		}
 
 		if newSize > currentOffset {
-			currentOffset = fp.readNewLines(file, reader, currentOffset, source, path)
+			currentOffset = fp.readNewLines(ctx, file, reader, currentOffset, source, path)
 		}
-
-		time.Sleep(100 * time.Millisecond)
 	}
+}
+
+// isClosed проверяет, закрыт ли провайдер.
+func (fp *FileProvider) isClosed() bool {
+	return fp.closed.Load()
 }
 
 // getOffset возвращает смещение для файла.
@@ -267,13 +296,28 @@ func (fp *FileProvider) getFileSize(file *os.File) (int64, error) {
 
 // resetReader сбрасывает reader после ротации файла.
 func (fp *FileProvider) resetReader(file *os.File) *bufio.Reader {
-	file.Seek(0, io.SeekStart)
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return bufio.NewReader(file)
+	}
 	return bufio.NewReader(file)
 }
 
+// sendWithTimeout отправляет лог в канал с таймаутом 10ms.
+func (fp *FileProvider) sendWithTimeout(ctx context.Context, logLine domain.LogLine) {
+	t := time.NewTimer(10 * time.Millisecond)
+	defer t.Stop()
+	select {
+	case fp.logChan <- logLine:
+	case <-t.C:
+	case <-ctx.Done():
+	}
+}
+
 // readNewLines читает новые строки и возвращает новое смещение.
-func (fp *FileProvider) readNewLines(file *os.File, reader *bufio.Reader, currentOffset int64, source domain.Source, path string) int64 {
-	file.Seek(currentOffset, io.SeekStart)
+func (fp *FileProvider) readNewLines(ctx context.Context, file *os.File, reader *bufio.Reader, currentOffset int64, source domain.Source, path string) int64 {
+	if _, err := file.Seek(currentOffset, io.SeekStart); err != nil {
+		return currentOffset
+	}
 	reader = bufio.NewReader(file)
 
 	for {
@@ -282,7 +326,7 @@ func (fp *FileProvider) readNewLines(file *os.File, reader *bufio.Reader, curren
 			if err == io.EOF {
 				break
 			}
-			continue
+			break
 		}
 
 		line = strings.TrimSuffix(line, "\n")
@@ -291,15 +335,19 @@ func (fp *FileProvider) readNewLines(file *os.File, reader *bufio.Reader, curren
 		if line != "" {
 			logLine := fp.parser.Parse(line, source)
 			if logLine != nil {
-				select {
-				case fp.logChan <- *logLine:
-				case <-time.After(10 * time.Millisecond):
-				}
+				fp.sendWithTimeout(ctx, *logLine)
 			}
+		}
+
+		if err := ctx.Err(); err != nil {
+			break
 		}
 	}
 
-	newOffset, _ := file.Seek(0, io.SeekCurrent)
+	newOffset, seekErr := file.Seek(0, io.SeekCurrent)
+	if seekErr != nil {
+		return currentOffset
+	}
 	fp.updateOffset(path, newOffset)
 	return newOffset
 }
@@ -312,8 +360,8 @@ func (fp *FileProvider) updateOffset(path string, offset int64) {
 }
 
 // readExistingContent читает весь существующий контент файла.
-func (fp *FileProvider) readExistingContent(file *os.File, source domain.Source) {
-	domain.ReadExistingContent(file, source, fp.parser, fp.logChan)
+func (fp *FileProvider) readExistingContent(ctx context.Context, file *os.File, source domain.Source) {
+	domain.ReadExistingContent(ctx, file, source, fp.parser, fp.logChan)
 }
 
 // LogChan возвращает канал для получения логов.
@@ -360,27 +408,26 @@ func (fp *FileProvider) EnabledSources() map[string]bool {
 	fp.mu.RLock()
 	defer fp.mu.RUnlock()
 
-	enabled := make(map[string]bool)
-	for k, v := range fp.includeSources {
-		enabled[k] = v
-	}
-	return enabled
+	return maps.Clone(fp.includeSources)
 }
 
 // Close закрывает FileProvider.
 func (fp *FileProvider) Close() error {
-	fp.mu.Lock()
-	defer fp.mu.Unlock()
-
-	if fp.closed {
+	if fp.closed.Load() {
 		return nil
 	}
-	fp.closed = true
+	fp.closed.Store(true)
 
+	close(fp.done)
+
+	fp.mu.Lock()
 	for path, file := range fp.sources {
 		file.Close()
 		delete(fp.sources, path)
 	}
+	fp.mu.Unlock()
+
+	fp.wg.Wait()
 	close(fp.logChan)
 	return nil
 }
@@ -392,6 +439,7 @@ type StdinProvider struct {
 	reader  *bufio.Reader
 	mu      sync.Mutex
 	closed  bool
+	done    chan struct{}
 }
 
 // NewStdinProvider создаёт новый StdinProvider.
@@ -400,34 +448,42 @@ func NewStdinProvider() *StdinProvider {
 		parser:  domain.NewMultiParser(),
 		logChan: make(chan domain.LogLine, 1000),
 		reader:  bufio.NewReader(os.Stdin),
+		done:    make(chan struct{}),
 	}
 }
 
 // Start запускает чтение из stdin.
-func (sp *StdinProvider) Start() error {
+func (sp *StdinProvider) Start(ctx context.Context) error {
 	sp.mu.Lock()
+	defer sp.mu.Unlock()
 	if sp.closed {
-		sp.mu.Unlock()
 		return nil
 	}
-	sp.mu.Unlock()
 
 	source := domain.Source{
 		Name: "stdin",
 		Path: "stdin",
 	}
 
-	go sp.readLines(source)
+	go sp.readLines(ctx, source)
 
 	return nil
 }
 
 // readLines читает строки из stdin.
-func (sp *StdinProvider) readLines(source domain.Source) {
+func (sp *StdinProvider) readLines(ctx context.Context, source domain.Source) {
 	scanner := bufio.NewScanner(sp.reader)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 
 	for scanner.Scan() {
+		select {
+		case <-sp.done:
+			return
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		line := scanner.Text()
 		if line == "" {
 			continue
@@ -435,11 +491,29 @@ func (sp *StdinProvider) readLines(source domain.Source) {
 
 		logLine := sp.parser.Parse(line, source)
 		if logLine != nil {
+			t := time.NewTimer(10 * time.Millisecond)
 			select {
 			case sp.logChan <- *logLine:
-			case <-time.After(10 * time.Millisecond):
+				if !t.Stop() {
+					<-t.C
+				}
+			case <-t.C:
+			case <-sp.done:
+				if !t.Stop() {
+					<-t.C
+				}
+				return
+			case <-ctx.Done():
+				if !t.Stop() {
+					<-t.C
+				}
+				return
 			}
 		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		slog.Error("stdin read error", "error", err)
 	}
 
 	sp.mu.Lock()
@@ -455,12 +529,18 @@ func (sp *StdinProvider) LogChan() <-chan domain.LogLine {
 	return sp.logChan
 }
 
+// Buffer возвращает nil для StdinProvider (буфер управляется MultiProvider).
+func (sp *StdinProvider) Buffer() *domain.RingBuffer {
+	return nil
+}
+
 // Close закрывает StdinProvider.
 func (sp *StdinProvider) Close() error {
 	sp.mu.Lock()
 	defer sp.mu.Unlock()
 	if !sp.closed {
 		sp.closed = true
+		close(sp.done)
 		close(sp.logChan)
 	}
 	return nil
@@ -486,8 +566,8 @@ func (sp *StdinProvider) IsSourceEnabled(path string) bool {
 }
 
 // Watch для StdinProvider - заглушка (stdin не требует watching).
-func (sp *StdinProvider) Watch(paths []string) error {
-	return sp.Start()
+func (sp *StdinProvider) Watch(ctx context.Context, paths []string) error {
+	return sp.Start(ctx)
 }
 
 // IsStdinPiped проверяет, подключён ли stdin к pipe.
@@ -504,7 +584,11 @@ func ExpandPaths(paths []string) []string {
 	var result []string
 	for _, p := range paths {
 		if len(p) > 0 {
-			matches, _ := filepath.Glob(p)
+			matches, err := filepath.Glob(p)
+			if err != nil {
+				slog.Warn("invalid glob pattern", "pattern", p, "error", err)
+				continue
+			}
 			result = append(result, matches...)
 		}
 	}

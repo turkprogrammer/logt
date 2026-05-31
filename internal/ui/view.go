@@ -191,7 +191,7 @@ func (m *Model) formatLine(line domain.LogLine, maxWidth int) string {
 	content := line.Content
 
 	if line.IsJSON {
-		if data, ok := line.Parsed.(map[string]interface{}); ok {
+		if data, ok := line.Parsed.(map[string]any); ok {
 			if msg, ok := data["message"].(string); ok {
 				content = msg
 			} else if msg, ok := data["msg"].(string); ok {
@@ -206,7 +206,7 @@ func (m *Model) formatLine(line domain.LogLine, maxWidth int) string {
 }
 
 // formatJSONCompact форматирует JSON компактно.
-func formatJSONCompact(data map[string]interface{}) string {
+func formatJSONCompact(data map[string]any) string {
 	parts := make([]string, 0, len(data))
 	for k, v := range data {
 		switch val := v.(type) {
@@ -376,7 +376,7 @@ func (m *Model) renderJSONHeader(sourceName string) string {
 }
 
 // renderJSONKeyLine рендерит строку с ключом JSON.
-func (m *Model) renderJSONKeyLine(key string, value interface{}, selected bool) string {
+func (m *Model) renderJSONKeyLine(key string, value any, selected bool) string {
 	prefix := "  "
 	if selected {
 		prefix = "▶ "
@@ -400,7 +400,7 @@ func (m *Model) renderJSONKeyLine(key string, value interface{}, selected bool) 
 }
 
 // formatJSONValue форматирует значение JSON с подсветкой.
-func formatJSONValue(v interface{}) string {
+func formatJSONValue(v any) string {
 	switch val := v.(type) {
 	case string:
 		return JSONValueStr.Render(fmt.Sprintf("%q", truncate(val, 50)))
@@ -466,7 +466,7 @@ func truncateWithANSI(s string, maxLen int) string {
 			result += string(r)
 			continue
 		}
-		if r == '[' {
+		if r == '\x1b' {
 			inANSI = true
 			result += string(r)
 			continue
@@ -500,7 +500,7 @@ func stripANSI(s string) string {
 		if r == '\x02' || r == '\x03' {
 			continue
 		}
-		if r == '[' {
+		if r == '\x1b' {
 			inANSI = true
 			continue
 		}
@@ -516,10 +516,4 @@ func stripANSI(s string) string {
 	return result.String()
 }
 
-// min возвращает минимум из двух чисел.
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
+

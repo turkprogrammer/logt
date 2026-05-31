@@ -8,7 +8,9 @@ package ui
 
 import (
 	"fmt"
+	"maps"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -31,10 +33,10 @@ const (
 
 // ExpandedJSON хранит состояние развёрнутого JSON просмотра.
 type ExpandedJSON struct {
-	Line     domain.LogLine         // Исходная строка
-	Selected int                    // Выбранный ключ
-	Keys     []string               // Ключи JSON
-	Data     map[string]interface{} // Данные JSON
+	Line     domain.LogLine // Исходная строка
+	Selected int            // Выбранный ключ
+	Keys     []string       // Ключи JSON
+	Data     map[string]any // Данные JSON
 }
 
 // Model представляет состояние TUI приложения LogT.
@@ -66,7 +68,7 @@ type Model struct {
 	Until *time.Time
 
 	// JSON Path фильтр
-	JsonFilter *jsonpath.Filter
+	JSONFilter *jsonpath.Filter
 
 	// Bookmarks
 	Bookmarks    *domain.BookmarkManager
@@ -84,8 +86,13 @@ func NewModel(p provider.Provider, since, until *time.Time, jsonFilter *jsonpath
 		includeSources[s.Path] = true
 	}
 
+	buf := p.Buffer()
+	if buf == nil {
+		buf = domain.NewRingBuffer(5000)
+	}
+
 	return &Model{
-		Buffer:          domain.NewRingBuffer(5000),
+		Buffer:          buf,
 		Provider:        p,
 		Paused:          false,
 		AutoScroll:      true,
@@ -95,11 +102,11 @@ func NewModel(p provider.Provider, since, until *time.Time, jsonFilter *jsonpath
 		ShowSourcePanel: false,
 		Sources:         sources,
 		IncludeSources:  includeSources,
-		SearchMatches:   make([]int, 0),
+		SearchMatches:   nil,
 		CurrentMatch:    -1,
 		Since:           since,
 		Until:           until,
-		JsonFilter:      jsonFilter,
+		JSONFilter:      jsonFilter,
 		Bookmarks:       domain.NewBookmarkManager(""),
 		BookmarkView:    false,
 		RateCalculator:  domain.NewRateCalculator(),
@@ -114,7 +121,7 @@ func (m *Model) SetSize(width, height int) {
 
 // VisibleLines возвращает видимые (отфильтрованные) строки.
 func (m *Model) VisibleLines() []domain.LogLine {
-	return m.Buffer.GetFilteredCombined(m.FilterText, m.IncludeSources, m.Since, m.Until, m.JsonFilter)
+	return m.Buffer.GetFilteredCombined(m.FilterText, m.IncludeSources, m.Since, m.Until, m.JSONFilter)
 }
 
 // VisibleBookmarkLines возвращает строки из bookmarks.
@@ -189,7 +196,7 @@ func (m *Model) ExpandJSON(lineIdx int) {
 		return
 	}
 
-	data, ok := line.Parsed.(map[string]interface{})
+	data, ok := line.Parsed.(map[string]any)
 	if !ok {
 		return
 	}
@@ -198,13 +205,13 @@ func (m *Model) ExpandJSON(lineIdx int) {
 	for k := range data {
 		keys = append(keys, k)
 	}
-	sortKeys(keys)
+	slices.Sort(keys)
 
 	m.ExpandedJSON = &ExpandedJSON{
 		Line:     line,
 		Selected: 0,
 		Keys:     keys,
-		Data:     data,
+		Data:     maps.Clone(data),
 	}
 }
 
@@ -311,17 +318,6 @@ func (m *Model) StatusText() string {
 
 	return fmt.Sprintf("%sFiles: %d/%d | Lines: %d/%d%s%s",
 		pausedInfo, enabledSources, len(m.Sources), len(lines), totalLines, filterInfo, rateInfo)
-}
-
-// sortKeys сортирует ключи для отображения.
-func sortKeys(keys []string) {
-	for i := 0; i < len(keys)-1; i++ {
-		for j := i + 1; j < len(keys); j++ {
-			if keys[i] > keys[j] {
-				keys[i], keys[j] = keys[j], keys[i]
-			}
-		}
-	}
 }
 
 // Стили отображения для разных уровней логирования.

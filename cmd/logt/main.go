@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -56,6 +57,9 @@ func showVersion(cfg *config.Config) {
 }
 
 func runWithPaths(paths []string, cfg *config.Config) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	var fileProvider provider.Provider
 	mp := provider.NewMultiProvider()
 
@@ -73,26 +77,29 @@ func runWithPaths(paths []string, cfg *config.Config) {
 		log.Fatalf("No files found matching: %v", paths)
 	}
 
-	if err := fileProvider.Watch(expandedPaths); err != nil {
+	if err := fileProvider.Watch(ctx, expandedPaths); err != nil {
 		log.Fatalf("Failed to watch files: %v", err)
 	}
 
-	run(mp, cfg)
+	run(ctx, mp, cfg)
 }
 
 func runStdin(cfg *config.Config) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	stdinProvider := provider.NewStdinProvider()
 	mp := provider.NewMultiProvider()
 	mp.AddProvider(stdinProvider)
 
-	if err := stdinProvider.Start(); err != nil {
+	if err := stdinProvider.Start(ctx); err != nil {
 		log.Fatalf("Failed to start stdin provider: %v", err)
 	}
 
-	run(mp, cfg)
+	run(ctx, mp, cfg)
 }
 
-func run(mp *provider.MultiProvider, cfg *config.Config) {
+func run(ctx context.Context, mp *provider.MultiProvider, cfg *config.Config) {
 	// Headless режим
 	if cfg.Headless {
 		runHeadless(mp, cfg)
@@ -124,11 +131,11 @@ func run(mp *provider.MultiProvider, cfg *config.Config) {
 
 	// Парсинг JSON Path фильтра
 	var jsonFilter *jsonpath.Filter
-	if cfg.JsonFilter != "" {
+	if cfg.JSONFilter != "" {
 		var err error
-		jsonFilter, err = jsonpath.Parse(cfg.JsonFilter)
+		jsonFilter, err = jsonpath.Parse(cfg.JSONFilter)
 		if err != nil {
-			log.Printf("Warning: invalid --json value %q: %v", cfg.JsonFilter, err)
+			log.Printf("Warning: invalid --json value %q: %v", cfg.JSONFilter, err)
 			jsonFilter = nil
 		}
 	}

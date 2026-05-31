@@ -19,22 +19,6 @@ const (
 	OpContains
 )
 
-// String возвращает строковое представление оператора.
-func (op Operator) String() string {
-	switch op {
-	case OpEquals:
-		return "=="
-	case OpNotEquals:
-		return "!="
-	case OpStartsWith:
-		return "startswith"
-	case OpContains:
-		return "contains"
-	default:
-		return "unknown"
-	}
-}
-
 // Filter представляет распарсенный JSON Path фильтр.
 type Filter struct {
 	Path     string   // Путь к полю (например, "level" или "user.name")

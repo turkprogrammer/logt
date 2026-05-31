@@ -1,4 +1,3 @@
-// Package domain предоставляет функции для расчёта статистики логов.
 package domain
 
 import (
@@ -74,15 +73,6 @@ func (s *Stats) ErrorPercentage() float64 {
 	}
 	errors := s.ByLevel[LevelError] + s.ByLevel[LevelFatal]
 	return float64(errors) * 100.0 / float64(s.TotalLines)
-}
-
-// PercentageForLevel возвращает процент для указанного уровня.
-func (s *Stats) PercentageForLevel(level LogLevel) float64 {
-	if s.TotalLines == 0 {
-		return 0
-	}
-	count := s.ByLevel[level]
-	return float64(count) * 100.0 / float64(s.TotalLines)
 }
 
 // String возвращает человекочитаемое представление статистики.

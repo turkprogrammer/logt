@@ -27,7 +27,7 @@ type Config struct {
 	Sources    []string `mapstructure:"sources"`
 	Since      string   `mapstructure:"since"`
 	Until      string   `mapstructure:"until"`
-	JsonFilter string   `mapstructure:"json-filter"`
+	JSONFilter string   `mapstructure:"json-filter"`
 	Headless   bool     `mapstructure:"headless"`
 	Tail       int      `mapstructure:"tail"`
 	Stats      bool     `mapstructure:"stats"`
@@ -106,7 +106,7 @@ func Load() (*Config, error) {
 	pflag.Parse()
 
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Printf("Используется конфигурация: %s\n", viper.ConfigFileUsed())
+		fmt.Fprintf(os.Stderr, "Используется конфигурация: %s\n", viper.ConfigFileUsed())
 	}
 
 	cfg := &Config{
@@ -119,7 +119,7 @@ func Load() (*Config, error) {
 		Sources:    viper.GetStringSlice("sources"),
 		Since:      viper.GetString("since"),
 		Until:      viper.GetString("until"),
-		JsonFilter: viper.GetString("json-filter"),
+		JSONFilter: viper.GetString("json-filter"),
 		Headless:   viper.GetBool("headless"),
 		Tail:       viper.GetInt("tail"),
 		Stats:      viper.GetBool("stats"),
@@ -135,19 +135,4 @@ func Load() (*Config, error) {
 	}
 
 	return cfg, nil
-}
-
-// Sources возвращает список источников из конфигурации.
-func (c *Config) SourcesFromConfig() []string {
-	var sources []string
-
-	if c.Path != "" {
-		sources = append(sources, strings.Split(c.Path, ",")...)
-	}
-
-	if len(c.Sources) > 0 {
-		sources = append(sources, c.Sources...)
-	}
-
-	return sources
 }

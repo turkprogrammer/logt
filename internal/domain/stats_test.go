@@ -108,11 +108,6 @@ func TestStats_LevelPercentage(t *testing.T) {
 	if errorPct != 20.0 {
 		t.Errorf("Expected ErrorPercentage=20.0, got %f", errorPct)
 	}
-
-	warnPct := stats.PercentageForLevel(LevelWarn)
-	if warnPct != 30.0 {
-		t.Errorf("Expected WarnPercentage=30.0, got %f", warnPct)
-	}
 }
 
 func TestStats_TimeRange(t *testing.T) {

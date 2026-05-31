@@ -1,4 +1,3 @@
-// Package domain предоставляет калькулятор скорости (rate) для логов.
 package domain
 
 import (
@@ -67,7 +66,7 @@ func (rc *RateCalculator) Reset() {
 }
 
 // calculateRateLocked рассчитывает rate (должна вызываться с захваченным lock).
-func (rc *RateCalculator) calculateRateLocked() float64 {
+func (rc *RateCalculator) calculateRateLocked() {
 	elapsed := time.Since(rc.startTime).Seconds()
 	if elapsed > 0 {
 		rc.lastRate = float64(rc.count) / elapsed
@@ -75,5 +74,4 @@ func (rc *RateCalculator) calculateRateLocked() float64 {
 		rc.lastRate = 0
 	}
 	rc.lastCalc = time.Now()
-	return rc.lastRate
 }

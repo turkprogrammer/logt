@@ -1,9 +1,9 @@
-// Package domain предоставляет менеджер bookmarks для сохранения важных строк логов.
 package domain
 
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -18,6 +18,7 @@ type Bookmark struct {
 
 // BookmarkManager управляет коллекцией bookmarks.
 type BookmarkManager struct {
+	mu        sync.Mutex
 	bookmarks []Bookmark
 	path      string // Путь к файлу сохранения
 }
@@ -26,8 +27,7 @@ type BookmarkManager struct {
 // Если path указан, bookmarks загружаются из файла.
 func NewBookmarkManager(path string) *BookmarkManager {
 	bm := &BookmarkManager{
-		bookmarks: make([]Bookmark, 0),
-		path:      path,
+		path: path,
 	}
 
 	// Загружаем существующие bookmarks
@@ -40,6 +40,8 @@ func NewBookmarkManager(path string) *BookmarkManager {
 
 // Add добавляет новую bookmark.
 func (bm *BookmarkManager) Add(line LogLine, note string) {
+	bm.mu.Lock()
+	defer bm.mu.Unlock()
 	bm.bookmarks = append(bm.bookmarks, Bookmark{
 		Line:      line,
 		Note:      note,
@@ -49,6 +51,8 @@ func (bm *BookmarkManager) Add(line LogLine, note string) {
 
 // GetAll возвращает все bookmarks.
 func (bm *BookmarkManager) GetAll() []Bookmark {
+	bm.mu.Lock()
+	defer bm.mu.Unlock()
 	result := make([]Bookmark, len(bm.bookmarks))
 	copy(result, bm.bookmarks)
 	return result
@@ -56,20 +60,24 @@ func (bm *BookmarkManager) GetAll() []Bookmark {
 
 // Remove удаляет bookmark по индексу.
 func (bm *BookmarkManager) Remove(index int) {
+	bm.mu.Lock()
+	defer bm.mu.Unlock()
 	if index < 0 || index >= len(bm.bookmarks) {
 		return
 	}
-	bm.bookmarks = append(bm.bookmarks[:index], bm.bookmarks[index+1:]...)
-}
-
-// Clear очищает все bookmarks.
-func (bm *BookmarkManager) Clear() {
-	bm.bookmarks = make([]Bookmark, 0)
+	n := len(bm.bookmarks)
+	copy(bm.bookmarks[index:], bm.bookmarks[index+1:])
+	bm.bookmarks[n-1] = Bookmark{}
+	bm.bookmarks = bm.bookmarks[:n-1]
 }
 
 // Export экспортирует bookmarks в YAML файл.
 func (bm *BookmarkManager) Export(path string) error {
-	data, err := yaml.Marshal(bm.toYAML())
+	bm.mu.Lock()
+	yamlData := bm.toYAML()
+	bm.mu.Unlock()
+
+	data, err := yaml.Marshal(yamlData)
 	if err != nil {
 		return err
 	}
@@ -105,6 +113,8 @@ func (bm *BookmarkManager) Load(path string) error {
 		return err
 	}
 
+	bm.mu.Lock()
+	defer bm.mu.Unlock()
 	bm.bookmarks = make([]Bookmark, 0, len(yamlData.Bookmarks))
 	for _, yb := range yamlData.Bookmarks {
 		bm.bookmarks = append(bm.bookmarks, yb.ToBookmark())

@@ -104,12 +104,6 @@ func TestRingBuffer_EmptyBuffer(t *testing.T) {
 	if lines != nil {
 		t.Errorf("Expected nil for empty buffer, got %v", lines)
 	}
-
-	rb.Clear()
-	lines = rb.GetAll()
-	if lines != nil {
-		t.Errorf("Expected nil after Clear, got %v", lines)
-	}
 }
 
 func TestRingBuffer_GetLastN(t *testing.T) {
@@ -127,55 +121,6 @@ func TestRingBuffer_GetLastN(t *testing.T) {
 	last100 := rb.GetLastN(100)
 	if len(last100) != 50 {
 		t.Errorf("Expected 50 lines (total), got %d", len(last100))
-	}
-}
-
-func TestRingBuffer_Filter(t *testing.T) {
-	rb := NewRingBuffer(100)
-
-	for i := 0; i < 10; i++ {
-		rb.Add(LogLine{Content: "error line"})
-		rb.Add(LogLine{Content: "info line"})
-	}
-
-	filtered := rb.GetFiltered("error", nil)
-	if len(filtered) != 10 {
-		t.Errorf("Expected 10 error lines, got %d", len(filtered))
-	}
-
-	filtered = rb.GetFiltered("INFO", nil)
-	if len(filtered) != 10 {
-		t.Errorf("Expected 10 info lines (case insensitive), got %d", len(filtered))
-	}
-
-	filtered = rb.GetFiltered("nonexistent", nil)
-	if len(filtered) != 0 {
-		t.Errorf("Expected 0 lines for nonexistent filter, got %d", len(filtered))
-	}
-
-	filtered = rb.GetFiltered("", nil)
-	if len(filtered) != 20 {
-		t.Errorf("Expected all 20 lines with empty filter, got %d", len(filtered))
-	}
-}
-
-func TestRingBuffer_SourceFilter(t *testing.T) {
-	rb := NewRingBuffer(100)
-
-	rb.Add(LogLine{Content: "line1", Source: Source{Path: "file1.log"}})
-	rb.Add(LogLine{Content: "line2", Source: Source{Path: "file2.log"}})
-	rb.Add(LogLine{Content: "line3", Source: Source{Path: "file1.log"}})
-
-	includeSources := map[string]bool{"file1.log": true}
-	filtered := rb.GetFiltered("", includeSources)
-	if len(filtered) != 2 {
-		t.Errorf("Expected 2 lines from file1.log, got %d", len(filtered))
-	}
-
-	includeSources = map[string]bool{"file2.log": true}
-	filtered = rb.GetFiltered("", includeSources)
-	if len(filtered) != 1 {
-		t.Errorf("Expected 1 line from file2.log, got %d", len(filtered))
 	}
 }
 
@@ -199,7 +144,6 @@ func TestRingBuffer_ConcurrentAccess(t *testing.T) {
 		defer wg.Done()
 		for j := 0; j < 100; j++ {
 			rb.GetAll()
-			rb.GetFiltered("", nil)
 			rb.Len()
 			time.Sleep(time.Microsecond)
 		}

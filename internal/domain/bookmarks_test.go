@@ -163,19 +163,3 @@ func TestBookmarkManager_Remove(t *testing.T) {
 		t.Errorf("Expected 1 bookmark after remove, got %d", len(bm.GetAll()))
 	}
 }
-
-func TestBookmarkManager_Clear(t *testing.T) {
-	bm := NewBookmarkManager("")
-
-	// Добавляем несколько bookmarks
-	for i := 0; i < 5; i++ {
-		bm.Add(LogLine{Content: "Test"}, "Note")
-	}
-
-	bm.Clear()
-
-	bookmarks := bm.GetAll()
-	if len(bookmarks) != 0 {
-		t.Errorf("Expected 0 bookmarks after clear, got %d", len(bookmarks))
-	}
-}

@@ -126,7 +126,7 @@ func TestJSONParser_ParsedData(t *testing.T) {
 		t.Fatal("Parse returned nil")
 	}
 
-	data, ok := result.Parsed.(map[string]interface{})
+	data, ok := result.Parsed.(map[string]any)
 	if !ok {
 		t.Fatalf("Parsed should be map, got %T", result.Parsed)
 	}
