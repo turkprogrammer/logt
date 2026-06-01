@@ -4,7 +4,7 @@
 
 ![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-[![Tests](https://img.shields.io/badge/Tests-166%20passing-44b526?style=for-the-badge)]()
+[![Tests](https://img.shields.io/badge/Tests-125%20passing-44b526?style=for-the-badge)]()
 ![Version](https://img.shields.io/badge/Version-0.5.0-blue?style=for-the-badge)
 
 ## 🚀 Возможности
@@ -19,7 +19,6 @@
 - **Headless Mode** — CLI режим без TUI (`--headless --stats`)
 - **Bookmarks** — Сохранение важных строк (`m`, `M`, `e`)
 - **Shell Completions** — Автодополнение для bash/zsh/fish (`logt completion bash`)
-- **Color Mode** — Управление цветами (`--color always|never|auto`)
 - **Rate Calculator** — Отображение скорости поступления логов в status bar
 
 ### Просмотр
@@ -28,7 +27,7 @@
 - **JSON Expand** — Нажмите Enter на JSON строке для разворачивания в полноэкранное дерево
 
 ### Интерактивность
-- **Fuzzy Filter** — Нажмите `/` для мгновенной фильтрации
+- **Фильтр по тексту** — Нажмите `/` для мгновенной фильтрации по подстроке
 - **Regex Filter** — Нажмите `r` для режима регулярных выражений
 - **Pause/Resume** — Нажмите `Space` для паузы автопрокрутки
 - **Source Toggle** — Нажмите `Tab` для показа/скрытия панели источников
@@ -42,7 +41,7 @@
 |-----------|-------|-------|
 | RingBuffer Add | **~27M ops/sec** | Потокобезопасный, блокировка-free чтение |
 | JSON Парсинг | **~314K строк/sec** | Авто-детект + парсинг |
-| Fuzzy Фильтр | **~3.7M совпадений/sec** | Без учёта регистра |
+| Фильтр по тексту | **~3.7M совпадений/sec** | Без учёта регистра |
 | Определение уровня | **~394K строк/sec** | На основе регулярных выражений |
 | IsValidJSON | **~1.3M проверок/sec** | Быстрая валидация |
 
@@ -250,11 +249,6 @@ logt --headless --stats --tail 50 --since 1h ./app.log
 logt completion bash > /etc/bash_completion.d/logt
 logt completion zsh > /usr/local/share/zsh/site-functions/_logt
 logt completion fish > ~/.config/fish/completions/logt.fish
-
-# Color mode
-logt --color always ./app.log    # Всегда использовать цвета
-logt --color never ./app.log     # Отключить цвета
-logt --color auto ./app.log      # Авто-определение (по умолчанию)
 ```
 
 ## ⌨️ Горячие клавиши
@@ -262,7 +256,7 @@ logt --color auto ./app.log      # Авто-определение (по умо�
 | Клавиша | Действие |
 |-----|--------|
 | `Space` | Пауза/Продолжить автопрокрутку |
-| `/` | Открыть Fuzzy фильтр |
+| `/` | Открыть фильтр по подстроке |
 | `r` | Переключить Fuzzy/Regex фильтр |
 | `Enter` | Применить фильтр / Открыть JSON |
 | `Backspace` | Удалить символ из фильтра |
@@ -286,9 +280,17 @@ logt --color auto ./app.log      # Авто-определение (по умо�
 logt/
 ├── cmd/logt/main.go           # Точка входа, CLI
 ├── internal/
-│   ├── config/config.go      # Загрузка конфигурации (yaml, env)
-│   ├── domain/domain.go      # Модели, Парсеры, RingBuffer
-│   ├── provider/provider.go  # Провайдеры файлов и stdin
+│   ├── config/config.go      # Загрузка конфигурации (yaml, env, pflag)
+│   ├── domain/
+│   │   ├── domain.go         # Модели, Парсеры, RingBuffer, фильтры
+│   │   ├── bookmarks.go      # Менеджер закладок
+│   │   ├── stats.go          # Статистика и агрегация
+│   │   ├── rate.go           # Калькулятор скорости
+│   │   └── jsonpath/         # JSON Path фильтрация
+│   ├── provider/
+│   │   ├── provider.go       # FileProvider, StdinProvider, MultiProvider
+│   │   ├── watcher_unix.go   # inotify/FSEvents (Linux/macOS)
+│   │   └── watcher_windows.go# Polling (Windows)
 │   └── ui/
 │       ├── model.go          # Состояние Bubble Tea
 │       ├── update.go         # Обработчики сообщений
@@ -321,7 +323,7 @@ go test -v -run TestRingBuffer ./...
 - RingBuffer overflow (100k → 5k limit)
 - Конкурентный доступ (thread-safety)
 - JSON/Logfmt/Plain парсеры с fallback
-- Fuzzy filter matching
+- Фильтр по тексту и regex
 - Определение уровня (case-insensitive)
 - Конфигурация (yaml, env, flags)
 
@@ -332,7 +334,7 @@ go test -v -run TestRingBuffer ./...
 | Размер бинарника | ~6MB | ~15MB |
 | Время старта | <100ms | ~200ms |
 | JSON поддержка | Нативная | Ограниченная |
-| Fuzzy Filter | ✓ | ✗ |
+| Фильтр по тексту | ✓ | ✓ |
 | Regex Filter | ✓ | ✓ |
 | YAML конфиг | ✓ | ✗ |
 | Требует конфиг | ✗ | ✓ |
@@ -370,7 +372,6 @@ LOGT_THEME=dark
 -S, --since string       Фильтр с времени (1h, 30m, 2024-01-15)
 -U, --until string       Фильтр по время (1h, 30m, 2024-01-15)
 -j, --json string        JSON Path фильтр (.level == "error")
--c, --color string       Цветовой режим (always, never, auto)
 -H, --headless           Режим без TUI (CLI)
 -n, --tail int           Последние N строк (0 = все)
 -s, --stats              Вывод статистики
