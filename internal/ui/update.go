@@ -6,16 +6,16 @@ import (
 	"github.com/turkprogrammer/logt/internal/provider"
 )
 
-// MsgLogLine представляет сообщение о новой строке лога.
-type MsgLogLine struct {
+// msgLogLine представляет сообщение о новой строке лога.
+type msgLogLine struct {
 	Line domain.LogLine
 }
 
-// ReadLogs создаёт команду для чтения логов из провайдера.
-func ReadLogs(p provider.Provider) tea.Cmd {
+// readLogs создаёт команду для чтения логов из провайдера.
+func readLogs(p provider.Provider) tea.Cmd {
 	return func() tea.Msg {
 		for logLine := range p.LogChan() {
-			return MsgLogLine{Line: logLine}
+			return msgLogLine{Line: logLine}
 		}
 		return nil
 	}
@@ -26,22 +26,22 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.SetSize(msg.Width, msg.Height)
-		return m, ReadLogs(m.Provider)
+		return m, readLogs(m.Provider)
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 
-	case MsgLogLine:
+	case msgLogLine:
 		if !m.Paused {
 			m.Buffer.Add(msg.Line)
 			m.RateCalculator.Update()
-			if ShouldAutoScroll(m) {
+			if shouldAutoScroll(m) {
 				lines := m.VisibleLines()
 				m.SelectedLine = len(lines) - 1
 			}
 			m.UpdateSearchMatches()
 		}
-		return m, ReadLogs(m.Provider)
+		return m, readLogs(m.Provider)
 	}
 
 	return m, nil
@@ -49,7 +49,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleKey обрабатывает нажатия клавиш.
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.ExpandedJSON != nil {
+	if m.expandedJSON != nil {
 		return m.handleJSONViewKey(msg)
 	}
 
@@ -85,7 +85,7 @@ func (m *Model) handleCtrlC() (tea.Model, tea.Cmd) {
 // handleSpace обрабатывает Space (пауза).
 func (m *Model) handleSpace() (tea.Model, tea.Cmd) {
 	m.TogglePause()
-	return m, ReadLogs(m.Provider)
+	return m, readLogs(m.Provider)
 }
 
 // handleEscape обрабатывает Escape (сброс фильтра).
@@ -94,8 +94,8 @@ func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 		m.BookmarkView = false
 		return m, nil
 	}
-	if m.FilterMode != FilterNone {
-		m.FilterMode = FilterNone
+	if m.FilterMode != filterNone {
+		m.FilterMode = filterNone
 		m.FilterText = ""
 		m.RegexPattern = nil
 		m.RegexError = ""
@@ -106,14 +106,14 @@ func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 
 // handleEnter обрабатывает Enter (применить фильтр или открыть JSON).
 func (m *Model) handleEnter() (tea.Model, tea.Cmd) {
-	if m.FilterMode != FilterNone && m.FilterText != "" {
-		if m.FilterMode == FilterRegex {
+	if m.FilterMode != filterNone && m.FilterText != "" {
+		if m.FilterMode == filterRegex {
 			if err := m.SetRegex(m.FilterText); err != nil {
 				m.RegexError = "Invalid regex: " + err.Error()
 			}
 		}
 		m.UpdateSearchMatches()
-		m.FilterMode = FilterNone
+		m.FilterMode = filterNone
 		return m, nil
 	}
 
@@ -129,7 +129,7 @@ func (m *Model) handleEnter() (tea.Model, tea.Cmd) {
 
 // handleBackspace обрабатывает Backspace (удаление символа фильтра).
 func (m *Model) handleBackspace() (tea.Model, tea.Cmd) {
-	if m.FilterMode != FilterNone && len(m.FilterText) > 0 {
+	if m.FilterMode != filterNone && len(m.FilterText) > 0 {
 		m.FilterText = m.FilterText[:len(m.FilterText)-1]
 		m.UpdateSearchMatches()
 	}
@@ -138,7 +138,7 @@ func (m *Model) handleBackspace() (tea.Model, tea.Cmd) {
 
 // handleNavigation обрабатывает клавиши навигации.
 func (m *Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.FilterMode != FilterNone {
+	if m.FilterMode != filterNone {
 		return m, nil
 	}
 	switch msg.Type {
@@ -174,7 +174,7 @@ func (m *Model) handleRunes(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := string(runes)
 	switch key {
 	case "/":
-		m.openFilterInput()
+		m.openfilterInput()
 	case "r":
 		m.toggleFilterMode()
 	case "m":
@@ -184,7 +184,7 @@ func (m *Model) handleRunes(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "e":
 		m.exportBookmarks()
 	default:
-		if m.FilterMode != FilterNone {
+		if m.FilterMode != filterNone {
 			m.FilterText += key
 			m.UpdateSearchMatches()
 		}
@@ -211,10 +211,10 @@ func (m *Model) handleCapitalLetters(r rune) bool {
 	return false
 }
 
-// openFilterInput открывает ввод фильтра.
-func (m *Model) openFilterInput() {
-	if m.FilterMode == FilterNone {
-		m.FilterMode = FilterInput
+// openfilterInput открывает ввод фильтра.
+func (m *Model) openfilterInput() {
+	if m.FilterMode == filterNone {
+		m.FilterMode = filterInput
 		m.FilterText = ""
 		m.RegexPattern = nil
 		m.RegexError = ""
@@ -223,7 +223,7 @@ func (m *Model) openFilterInput() {
 
 // addBookmark добавляет bookmark текущей строки.
 func (m *Model) addBookmark() {
-	if m.FilterMode == FilterNone && !m.BookmarkView {
+	if m.FilterMode == filterNone && !m.BookmarkView {
 		lines := m.VisibleLines()
 		if m.SelectedLine >= 0 && m.SelectedLine < len(lines) {
 			m.Bookmarks.Add(lines[m.SelectedLine], "")
@@ -233,14 +233,14 @@ func (m *Model) addBookmark() {
 
 // toggleBookmarkView переключает режим просмотра bookmarks.
 func (m *Model) toggleBookmarkView() {
-	if m.FilterMode == FilterNone {
+	if m.FilterMode == filterNone {
 		m.BookmarkView = !m.BookmarkView
 	}
 }
 
 // exportBookmarks экспортирует bookmarks в файл.
 func (m *Model) exportBookmarks() {
-	if m.FilterMode == FilterNone && !m.BookmarkView {
+	if m.FilterMode == filterNone && !m.BookmarkView {
 		m.Bookmarks.Export("bookmarks.yaml")
 	}
 }
@@ -248,17 +248,17 @@ func (m *Model) exportBookmarks() {
 // toggleFilterMode переключает режимы фильтрации.
 func (m *Model) toggleFilterMode() {
 	switch m.FilterMode {
-	case FilterNone:
-		m.FilterMode = FilterRegex
+	case filterNone:
+		m.FilterMode = filterRegex
 		m.FilterText = ""
 		m.RegexPattern = nil
 		m.RegexError = ""
-	case FilterInput:
-		m.FilterMode = FilterRegex
+	case filterInput:
+		m.FilterMode = filterRegex
 		m.RegexPattern = nil
 		m.RegexError = ""
-	case FilterRegex:
-		m.FilterMode = FilterInput
+	case filterRegex:
+		m.FilterMode = filterInput
 		m.RegexPattern = nil
 		m.RegexError = ""
 	}
@@ -278,23 +278,23 @@ func (m *Model) handleJSONViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.KeyUp:
-		if m.ExpandedJSON.Selected > 0 {
-			m.ExpandedJSON.Selected--
+		if m.expandedJSON.Selected > 0 {
+			m.expandedJSON.Selected--
 		}
 		return m, nil
 
 	case tea.KeyDown:
-		if m.ExpandedJSON.Selected < len(m.ExpandedJSON.Keys)-1 {
-			m.ExpandedJSON.Selected++
+		if m.expandedJSON.Selected < len(m.expandedJSON.Keys)-1 {
+			m.expandedJSON.Selected++
 		}
 		return m, nil
 
 	case tea.KeyHome:
-		m.ExpandedJSON.Selected = 0
+		m.expandedJSON.Selected = 0
 		return m, nil
 
 	case tea.KeyEnd:
-		m.ExpandedJSON.Selected = len(m.ExpandedJSON.Keys) - 1
+		m.expandedJSON.Selected = len(m.expandedJSON.Keys) - 1
 		return m, nil
 	}
 

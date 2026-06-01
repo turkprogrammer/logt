@@ -84,9 +84,9 @@ var levelByIndex = []LogLevel{
 	LevelTrace,
 }
 
-// DetectLevel определяет уровень логирования по тексту строки.
+// detectLevel определяет уровень логирования по тексту строки.
 // Возвращает LevelUnknown если уровень не определён.
-func DetectLevel(line string) LogLevel {
+func detectLevel(line string) LogLevel {
 	upper := strings.ToUpper(line)
 	for i, pattern := range levelPatterns {
 		if pattern.MatchString(upper) {
@@ -96,10 +96,10 @@ func DetectLevel(line string) LogLevel {
 	return LevelUnknown
 }
 
-// ParseTimestamp извлекает временную метку из строки лога.
+// parseTimestamp извлекает временную метку из строки лога.
 // Поддерживает форматы: ISO 8601, Apache, и другие.
 // Возвращает текущее время если парсинг не удался.
-func ParseTimestamp(line string) time.Time {
+func parseTimestamp(line string) time.Time {
 	for _, pattern := range timestampPatterns {
 		if match := pattern.FindString(line); match != "" {
 			t, err := parseTimestampValue(match)
@@ -127,9 +127,9 @@ func parseTimestampValue(s string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("cannot parse timestamp")
 }
 
-// IsValidJSON проверяет, является ли строка валидным JSON.
+// isValidJSON проверяет, является ли строка валидным JSON.
 // Возвращает true если строка начинается с { или [ и валидна.
-func IsValidJSON(line string) bool {
+func isValidJSON(line string) bool {
 	line = strings.TrimSpace(line)
 	if len(line) < 2 || (line[0] != '{' && line[0] != '[') {
 		return false
@@ -180,7 +180,7 @@ func (p *JSONParser) Parse(line string, source Source) *LogLine {
 		Content:   line,
 		IsJSON:    true,
 		Parsed:    data,
-		Timestamp: ParseTimestamp(line),
+		Timestamp: parseTimestamp(line),
 		Level:     LevelUnknown,
 	}
 
@@ -190,7 +190,7 @@ func (p *JSONParser) Parse(line string, source Source) *LogLine {
 	} else if level, ok := data["severity"].(string); ok {
 		logLine.Level = LogLevel(strings.ToUpper(level))
 	} else {
-		logLine.Level = DetectLevel(line)
+		logLine.Level = detectLevel(line)
 	}
 
 	// Извлекаем временную метку из JSON полей
@@ -213,7 +213,7 @@ func (p *JSONParser) Parse(line string, source Source) *LogLine {
 
 // CanParse проверяет, является ли строка валидным JSON.
 func (p *JSONParser) CanParse(line string) bool {
-	return IsValidJSON(line)
+	return isValidJSON(line)
 }
 
 // parseTime парсит время в формате RFC3339.
@@ -252,7 +252,7 @@ func (p *LogfmtParser) Parse(line string, source Source) *LogLine {
 		Content:   line,
 		IsJSON:    false,
 		Parsed:    data,
-		Timestamp: ParseTimestamp(line),
+		Timestamp: parseTimestamp(line),
 		Level:     LevelUnknown,
 	}
 
@@ -261,7 +261,7 @@ func (p *LogfmtParser) Parse(line string, source Source) *LogLine {
 	} else if level, ok := data["severity"]; ok {
 		logLine.Level = LogLevel(strings.ToUpper(level))
 	} else {
-		logLine.Level = DetectLevel(line)
+		logLine.Level = detectLevel(line)
 	}
 
 	return logLine
@@ -303,8 +303,8 @@ func (p *PlainParser) Parse(line string, source Source) *LogLine {
 		Content:   line,
 		IsJSON:    false,
 		Parsed:    nil,
-		Timestamp: ParseTimestamp(line),
-		Level:     DetectLevel(line),
+		Timestamp: parseTimestamp(line),
+		Level:     detectLevel(line),
 	}
 }
 

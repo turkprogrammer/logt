@@ -21,18 +21,18 @@ import (
 	"github.com/turkprogrammer/logt/internal/provider"
 )
 
-// FilterMode определяет режим работы фильтра.
-type FilterMode int
+// filterMode определяет режим работы фильтра.
+type filterMode int
 
 // Режимы фильтрации.
 const (
-	FilterNone  FilterMode = iota // Фильтр выключен
-	FilterInput                   // Ввод фильтра
-	FilterRegex                   // Режим регулярных выражений
+	filterNone  filterMode = iota // Фильтр выключен
+	filterInput                   // Ввод фильтра
+	filterRegex                   // Режим регулярных выражений
 )
 
-// ExpandedJSON хранит состояние развёрнутого JSON просмотра.
-type ExpandedJSON struct {
+// expandedJSON хранит состояние развёрнутого JSON просмотра.
+type expandedJSON struct {
 	Line     domain.LogLine // Исходная строка
 	Selected int            // Выбранный ключ
 	Keys     []string       // Ключи JSON
@@ -48,14 +48,14 @@ type Model struct {
 
 	Paused       bool           // Режим паузы
 	AutoScroll   bool           // Автопрокрутка
-	FilterMode   FilterMode     // Режим фильтра
+	FilterMode   filterMode     // Режим фильтра
 	FilterText   string         // Текст фильтра
 	RegexPattern *regexp.Regexp // Скомпилированный regex
 	RegexError   string         // Ошибка regex
 
-	SelectedLine    int           // Выбранная строка
-	ExpandedJSON    *ExpandedJSON // Развёрнутый JSON
-	ShowSourcePanel bool          // Показывать панель источников
+	SelectedLine    int            // Выбранная строка
+	expandedJSON    *expandedJSON  // Развёрнутый JSON
+	ShowSourcePanel bool           // Показывать панель источников
 
 	Sources        []domain.Source // Список источников
 	IncludeSources map[string]bool // Какие источники показывать
@@ -96,7 +96,7 @@ func NewModel(p provider.Provider, since, until *time.Time, jsonFilter *jsonpath
 		Provider:        p,
 		Paused:          false,
 		AutoScroll:      true,
-		FilterMode:      FilterNone,
+		FilterMode:      filterNone,
 		FilterText:      "",
 		SelectedLine:    0,
 		ShowSourcePanel: false,
@@ -181,12 +181,12 @@ func (m *Model) SetRegex(pattern string) error {
 
 // ToggleRegexMode переключает режим regex.
 func (m *Model) ToggleRegexMode() {
-	if m.FilterMode == FilterRegex {
-		m.FilterMode = FilterNone
+	if m.FilterMode == filterRegex {
+		m.FilterMode = filterNone
 		m.RegexPattern = nil
 		m.RegexError = ""
 	} else {
-		m.FilterMode = FilterRegex
+		m.FilterMode = filterRegex
 	}
 }
 
@@ -213,7 +213,7 @@ func (m *Model) ExpandJSON(lineIdx int) {
 	}
 	slices.Sort(keys)
 
-	m.ExpandedJSON = &ExpandedJSON{
+	m.expandedJSON = &expandedJSON{
 		Line:     line,
 		Selected: 0,
 		Keys:     keys,
@@ -223,7 +223,7 @@ func (m *Model) ExpandJSON(lineIdx int) {
 
 // CollapseJSON закрывает просмотр JSON.
 func (m *Model) CollapseJSON() {
-	m.ExpandedJSON = nil
+	m.expandedJSON = nil
 }
 
 // NavigateToMatch переходит к следующему/предыдущему совпадению.
@@ -328,40 +328,40 @@ func (m *Model) StatusText() string {
 
 // Стили отображения для разных уровней логирования.
 var (
-	InfoStyle     = lipgloss.NewStyle().Foreground(colorBlue)
-	WarnStyle     = lipgloss.NewStyle().Foreground(colorYellow)
-	ErrorStyle    = lipgloss.NewStyle().Foreground(colorRed)
-	DebugStyle    = lipgloss.NewStyle().Foreground(colorSubtext)
-	FatalStyle    = lipgloss.NewStyle().Foreground(colorRed).Bold(true)
-	JSONStyle     = lipgloss.NewStyle().Foreground(colorMauve)
-	SourceStyle   = lipgloss.NewStyle().Foreground(colorTeal)
-	SelectedStyle = lipgloss.NewStyle().Background(colorOverlay).Foreground(colorText)
+	infoStyle     = lipgloss.NewStyle().Foreground(colorBlue)
+	warnStyle     = lipgloss.NewStyle().Foreground(colorYellow)
+	errorStyle    = lipgloss.NewStyle().Foreground(colorRed)
+	debugStyle    = lipgloss.NewStyle().Foreground(colorSubtext)
+	fatalStyle    = lipgloss.NewStyle().Foreground(colorRed).Bold(true)
+	jsonStyle     = lipgloss.NewStyle().Foreground(colorMauve)
+	sourceStyle   = lipgloss.NewStyle().Foreground(colorTeal)
+	selectedStyle = lipgloss.NewStyle().Background(colorOverlay).Foreground(colorText)
 )
 
-// GetLevelStyle возвращает стиль для указанного уровня логирования.
-func GetLevelStyle(level domain.LogLevel) lipgloss.Style {
+// getLevelStyle возвращает стиль для указанного уровня логирования.
+func getLevelStyle(level domain.LogLevel) lipgloss.Style {
 	switch level {
 	case domain.LevelInfo:
-		return InfoStyle
+		return infoStyle
 	case domain.LevelWarn:
-		return WarnStyle
+		return warnStyle
 	case domain.LevelError:
-		return ErrorStyle
+		return errorStyle
 	case domain.LevelDebug:
-		return DebugStyle
+		return debugStyle
 	case domain.LevelFatal:
-		return FatalStyle
+		return fatalStyle
 	default:
 		return lipgloss.NewStyle()
 	}
 }
 
-// ShouldAutoScroll проверяет, нужно ли автоматически прокручивать.
-func ShouldAutoScroll(m *Model) bool {
-	return m.AutoScroll && !m.Paused && m.FilterMode == FilterNone && m.ExpandedJSON == nil
+// shouldAutoScroll проверяет, нужно ли автоматически прокручивать.
+func shouldAutoScroll(m *Model) bool {
+	return m.AutoScroll && !m.Paused && m.FilterMode == filterNone && m.expandedJSON == nil
 }
 
 // Init инициализирует модель для Bubble Tea.
 func (m *Model) Init() tea.Cmd {
-	return ReadLogs(m.Provider)
+	return readLogs(m.Provider)
 }

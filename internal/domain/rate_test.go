@@ -1,4 +1,3 @@
-// Package domain тестирует калькулятор скорости (rate).
 package domain
 
 import (

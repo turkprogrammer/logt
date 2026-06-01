@@ -15,7 +15,7 @@ func TestDefaultConfig(t *testing.T) {
 		t.Errorf("Expected BufferMax 10000, got %d", cfg.BufferMax)
 	}
 	if cfg.Theme != "dark" {
-		t.Errorf("Expected Theme 'dark', got %s", cfg.Theme)
+		t.Errorf("Expected Theme 'dark', got %q", cfg.Theme)
 	}
 }
 

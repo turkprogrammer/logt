@@ -66,8 +66,8 @@ func (rb *RingBuffer) CalculateStats() *Stats {
 	return stats
 }
 
-// ErrorPercentage возвращает процент ошибок от общего количества строк.
-func (s *Stats) ErrorPercentage() float64 {
+// errorPercentage возвращает процент ошибок от общего количества строк.
+func (s *Stats) errorPercentage() float64 {
 	if s.TotalLines == 0 {
 		return 0
 	}
@@ -82,7 +82,7 @@ func (s *Stats) String() string {
 	sb.WriteString(fmt.Sprintf("Lines: %d\n", s.TotalLines))
 
 	// Процент ошибок
-	errorPct := s.ErrorPercentage()
+	errorPct := s.errorPercentage()
 	sb.WriteString(fmt.Sprintf("Errors: %d (%.2f%%)\n", s.ByLevel[LevelError]+s.ByLevel[LevelFatal], errorPct))
 
 	// По уровням

@@ -1,5 +1,3 @@
-// Package jsonpath предоставляет парсер и исполнитель JSON Path фильтров.
-// Поддерживаемые операторы: ==, !=, startswith, contains
 package jsonpath
 
 import (

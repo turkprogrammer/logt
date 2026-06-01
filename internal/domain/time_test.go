@@ -1,4 +1,3 @@
-// Package domain тестирует парсинг времени для фильтрации.
 package domain
 
 import (

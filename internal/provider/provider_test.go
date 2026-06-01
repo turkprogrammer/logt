@@ -229,7 +229,7 @@ func TestStdinProvider(t *testing.T) {
 			t.Fatal("Log channel closed unexpectedly")
 		}
 		if logLine.Content != `{"level":"info","msg":"Test from stdin"}` {
-			t.Errorf("Unexpected content: %s", logLine.Content)
+			t.Errorf("Unexpected content: %q", logLine.Content)
 		}
 		t.Logf("Successfully read from stdin: %s", logLine.Content)
 	case <-time.After(500 * time.Millisecond):

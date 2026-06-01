@@ -360,7 +360,13 @@ func (fp *FileProvider) updateOffset(path string, offset int64) {
 
 // readExistingContent читает весь существующий контент файла.
 func (fp *FileProvider) readExistingContent(ctx context.Context, file *os.File, source domain.Source) {
-	domain.ReadExistingContent(ctx, file, source, fp.parser, fp.logChan)
+	domain.ReadExistingContent(
+		ctx,
+		file,
+		source,
+		fp.parser,
+		fp.logChan,
+	)
 }
 
 // LogChan возвращает канал для получения логов.

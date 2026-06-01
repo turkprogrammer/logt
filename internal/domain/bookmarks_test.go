@@ -1,4 +1,3 @@
-// Package domain тестирует менеджер bookmarks.
 package domain
 
 import (

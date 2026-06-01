@@ -189,7 +189,13 @@ func (wp *WatcherProvider) watchFile(ctx context.Context, path string) {
 		Path: path,
 	}
 
-	domain.ReadExistingContent(ctx, file, source, wp.parser, wp.logChan)
+	domain.ReadExistingContent(
+		ctx,
+		file,
+		source,
+		wp.parser,
+		wp.logChan,
+	)
 
 	wp.mu.Lock()
 	wp.offsets[path] = stat.Size()

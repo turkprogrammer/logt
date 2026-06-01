@@ -69,7 +69,7 @@ var (
 
 // View рендерит интерфейс приложения.
 func (m *Model) View() string {
-	if m.ExpandedJSON != nil {
+	if m.expandedJSON != nil {
 		return m.renderJSONView()
 	}
 
@@ -80,7 +80,7 @@ func (m *Model) View() string {
 
 	var sb strings.Builder
 
-	if m.FilterMode != FilterNone {
+	if m.FilterMode != filterNone {
 		sb.WriteString(m.renderFilterBar())
 	}
 
@@ -160,7 +160,7 @@ func (m *Model) calculateViewport(totalLines, height int) (start, end int) {
 
 // renderLogLine рендерит одну строку лога.
 func (m *Model) renderLogLine(line domain.LogLine, index, width int) string {
-	style := GetLevelStyle(line.Level)
+	style := getLevelStyle(line.Level)
 	if line.IsJSON {
 		style = lipgloss.NewStyle().Foreground(colorMauve)
 	}
@@ -224,7 +224,7 @@ func (m *Model) renderFilterBar() string {
 	var barStyle lipgloss.Style
 	prompt := "/"
 
-	if m.FilterMode == FilterRegex {
+	if m.FilterMode == filterRegex {
 		barStyle = regexBarStyle
 		prompt = ".* "
 	} else {
@@ -233,7 +233,7 @@ func (m *Model) renderFilterBar() string {
 	}
 
 	cursor := " "
-	if m.FilterMode == FilterInput || m.FilterMode == FilterRegex {
+	if m.FilterMode == filterInput || m.FilterMode == filterRegex {
 		cursor = "\u2588"
 	}
 
@@ -304,7 +304,7 @@ func (m *Model) renderBookmarkView() string {
 
 	// Вывод bookmarks
 	for i, line := range lines {
-		style := GetLevelStyle(line.Level)
+		style := getLevelStyle(line.Level)
 		if i == m.SelectedLine {
 			style = style.Background(colorOverlay).Foreground(colorText)
 		}
@@ -331,7 +331,7 @@ func (m *Model) renderBookmarkView() string {
 
 // renderJSONView рендерит развёрнутый JSON с подсветкой.
 func (m *Model) renderJSONView() string {
-	ej := m.ExpandedJSON
+	ej := m.expandedJSON
 	if ej == nil {
 		return ""
 	}

@@ -1,4 +1,3 @@
-// Package domain тестирует фильтрацию по времени и JSON Path.
 package domain
 
 import (

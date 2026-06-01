@@ -1,4 +1,3 @@
-// Package domain тестирует калькулятор статистики логов.
 package domain
 
 import (
@@ -104,9 +103,10 @@ func TestStats_LevelPercentage(t *testing.T) {
 	stats := rb.CalculateStats()
 
 	// Проверяем проценты
-	errorPct := stats.ErrorPercentage()
-	if errorPct != 20.0 {
-		t.Errorf("Expected ErrorPercentage=20.0, got %f", errorPct)
+	errorPct := stats.errorPercentage()
+
+		if errorPct != 20.0 {
+			t.Errorf("Expected errorPercentage=20.0, got %f", errorPct)
 	}
 }
 

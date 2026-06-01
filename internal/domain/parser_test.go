@@ -50,7 +50,7 @@ func TestJSONParser_ValidJSON(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if !parser.CanParse(tt.input) {
-				t.Errorf("CanParse returned false for valid JSON: %s", tt.input)
+				t.Errorf("CanParse returned false for valid JSON: %q", tt.input)
 			}
 			result := parser.Parse(tt.input, source)
 			if result == nil {
@@ -174,7 +174,7 @@ func TestLogfmtParser_ValidLogfmt(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if !parser.CanParse(tt.input) {
-				t.Errorf("CanParse returned false for: %s", tt.input)
+				t.Errorf("CanParse returned false for: %q", tt.input)
 			}
 			result := parser.Parse(tt.input, source)
 			if result == nil {
@@ -304,9 +304,9 @@ func TestDetectLevel_CaseInsensitive(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := DetectLevel(tt.input)
+		got := detectLevel(tt.input)
 		if got != tt.want {
-			t.Errorf("DetectLevel(%q) = %v, want %v", tt.input, got, tt.want)
+			t.Errorf("detectLevel(%q) = %v, want %v", tt.input, got, tt.want)
 		}
 	}
 }
@@ -329,14 +329,14 @@ func TestIsValidJSON(t *testing.T) {
 	}
 
 	for _, s := range valid {
-		if !IsValidJSON(s) {
-			t.Errorf("IsValidJSON(%q) = false, want true", s)
+		if !isValidJSON(s) {
+			t.Errorf("isValidJSON(%q) = false, want true", s)
 		}
 	}
 
 	for _, s := range invalid {
-		if IsValidJSON(s) {
-			t.Errorf("IsValidJSON(%q) = true, want false", s)
+		if isValidJSON(s) {
+			t.Errorf("isValidJSON(%q) = true, want false", s)
 		}
 	}
 }
@@ -356,7 +356,7 @@ func TestParseTimestamp(t *testing.T) {
 
 	for _, tt := range tests {
 		before := time.Now()
-		result := ParseTimestamp(tt.input)
+		result := parseTimestamp(tt.input)
 		after := time.Now()
 
 		if tt.want {
@@ -409,7 +409,7 @@ func BenchmarkDetectLevel(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		DetectLevel(input)
+		detectLevel(input)
 	}
 }
 
@@ -418,6 +418,6 @@ func BenchmarkIsValidJSON(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		IsValidJSON(json)
+		isValidJSON(json)
 	}
 }
