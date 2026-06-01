@@ -58,7 +58,7 @@ func (wp *WatcherProvider) Watch(ctx context.Context, paths []string) error {
 	for _, pathPattern := range paths {
 		matches, err := filepath.Glob(pathPattern)
 		if err != nil {
-			return fmt.Errorf("invalid glob pattern %s: %w", pathPattern, err)
+			return fmt.Errorf("invalid glob pattern %q: %w", pathPattern, err)
 		}
 
 		for _, path := range matches {
@@ -95,14 +95,9 @@ func (wp *WatcherProvider) addWatch(path string) error {
 	}
 
 	if fileInfo.IsDir() {
-		if err := wp.watcher.AddRecursive(path); err != nil {
-			return err
-		}
-	} else {
-		if err := wp.watcher.Add(path); err != nil {
-			return err
-		}
+		return wp.watcher.AddRecursive(path)
 	}
+	return wp.watcher.Add(path)
 
 	wp.sources[path] = true
 	wp.includeSources[path] = true
@@ -133,8 +128,8 @@ func (wp *WatcherProvider) watchLoop(ctx context.Context) {
 			switch {
 			case event.Op&watcher.Create == watcher.Create:
 				wp.handleNewFile(ctx, path)
-			case event.Op&watcher.Write == watcher.Write:
-				wp.handleFileWrite(path)
+		case event.Op&watcher.Write == watcher.Write:
+			wp.handleFileWrite(ctx, path)
 			case event.Op&watcher.Remove == watcher.Remove:
 				wp.handleFileRemove(path)
 			case event.Op&watcher.Rename == watcher.Rename:
@@ -216,7 +211,7 @@ func (wp *WatcherProvider) handleNewFile(ctx context.Context, path string) {
 }
 
 // handleFileWrite обрабатывает запись в файл.
-func (wp *WatcherProvider) handleFileWrite(path string) {
+func (wp *WatcherProvider) handleFileWrite(ctx context.Context, path string) {
 	if !wp.isSourceEnabled(path) {
 		return
 	}
@@ -233,7 +228,7 @@ func (wp *WatcherProvider) handleFileWrite(path string) {
 	}
 
 	if newSize > currentOffset {
-		wp.readAndSendLines(file, currentOffset, path)
+		wp.readAndSendLines(ctx, file, currentOffset, path)
 		wp.updateOffset(path, newSize)
 	}
 }
@@ -269,7 +264,7 @@ func (wp *WatcherProvider) openFileAndGetStat(path string) (int64, *os.File, err
 }
 
 // readAndSendLines читает новые строки и отправляет в канал.
-func (wp *WatcherProvider) readAndSendLines(file *os.File, offset int64, path string) {
+func (wp *WatcherProvider) readAndSendLines(ctx context.Context, file *os.File, offset int64, path string) {
 	if _, err := file.Seek(offset, 0); err != nil {
 		return
 	}
@@ -292,14 +287,19 @@ func (wp *WatcherProvider) readAndSendLines(file *os.File, offset int64, path st
 		if line != "" {
 			logLine := wp.parser.Parse(line, source)
 			if logLine != nil {
-				t := time.NewTimer(10 * time.Millisecond)
-				select {
-				case wp.logChan <- *logLine:
-					if !t.Stop() {
-						<-t.C
-					}
-				case <-t.C:
+			t := time.NewTimer(10 * time.Millisecond)
+			select {
+			case wp.logChan <- *logLine:
+				if !t.Stop() {
+					<-t.C
 				}
+			case <-t.C:
+			case <-ctx.Done():
+				if !t.Stop() {
+					<-t.C
+				}
+				return
+			}
 			}
 		}
 	}
@@ -352,11 +352,7 @@ func (wp *WatcherProvider) ToggleSource(path string) {
 	wp.mu.Lock()
 	defer wp.mu.Unlock()
 
-	if wp.includeSources[path] {
-		wp.includeSources[path] = false
-	} else {
-		wp.includeSources[path] = true
-	}
+	wp.includeSources[path] = !wp.includeSources[path]
 }
 
 // IsSourceEnabled проверяет, включён ли источник.
@@ -376,10 +372,9 @@ func (wp *WatcherProvider) EnabledSources() map[string]bool {
 
 // Close закрывает WatcherProvider.
 func (wp *WatcherProvider) Close() error {
-	if wp.closed.Load() {
+	if !wp.closed.CompareAndSwap(false, true) {
 		return nil
 	}
-	wp.closed.Store(true)
 
 	if err := wp.watcher.Close(); err != nil {
 		return err

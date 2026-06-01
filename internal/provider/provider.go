@@ -37,6 +37,7 @@ type MultiProvider struct {
 	buffer    *domain.RingBuffer
 	mu        sync.RWMutex
 	wg        sync.WaitGroup
+	closed    bool
 }
 
 // NewMultiProvider создаёт новый MultiProvider.
@@ -50,6 +51,10 @@ func NewMultiProvider() *MultiProvider {
 // AddProvider добавляет провайдер в MultiProvider.
 func (mp *MultiProvider) AddProvider(p Provider) {
 	mp.mu.Lock()
+	if mp.closed {
+		mp.mu.Unlock()
+		return
+	}
 	mp.providers = append(mp.providers, p)
 	mp.mu.Unlock()
 
@@ -61,8 +66,14 @@ func (mp *MultiProvider) AddProvider(p Provider) {
 func (mp *MultiProvider) forwardLogs(p Provider) {
 	defer mp.wg.Done()
 	for logLine := range p.LogChan() {
-		mp.logChan <- logLine
-		mp.buffer.Add(logLine)
+		t := time.NewTimer(100 * time.Millisecond)
+		select {
+		case mp.logChan <- logLine:
+			if !t.Stop() {
+				<-t.C
+			}
+		case <-t.C:
+		}
 	}
 }
 
@@ -82,7 +93,7 @@ func (mp *MultiProvider) Sources() []domain.Source {
 	defer mp.mu.RUnlock()
 
 	seen := make(map[string]bool)
-	var sources []domain.Source
+	sources := make([]domain.Source, 0)
 
 	for _, p := range mp.providers {
 		for _, s := range p.Sources() {
@@ -133,6 +144,7 @@ func (mp *MultiProvider) IsSourceEnabled(path string) bool {
 // Close закрывает все провайдеры.
 func (mp *MultiProvider) Close() error {
 	mp.mu.Lock()
+	mp.closed = true
 	for _, p := range mp.providers {
 		p.Close()
 	}
@@ -185,7 +197,7 @@ func (fp *FileProvider) Watch(ctx context.Context, paths []string) error {
 	for _, pathPattern := range paths {
 		matches, err := filepath.Glob(pathPattern)
 		if err != nil {
-			return fmt.Errorf("invalid glob pattern %s: %w", pathPattern, err)
+			return fmt.Errorf("invalid glob pattern %q: %w", pathPattern, err)
 		}
 		for _, path := range matches {
 			if err := fp.watchFile(ctx, path); err != nil {
@@ -239,7 +251,6 @@ func (fp *FileProvider) watchLoop(ctx context.Context, path string, file *os.Fil
 		fp.readExistingContent(ctx, file, source)
 	}
 
-	reader := bufio.NewReader(file)
 	currentOffset := fp.getOffset(path)
 
 	ticker := time.NewTicker(100 * time.Millisecond)
@@ -264,11 +275,10 @@ func (fp *FileProvider) watchLoop(ctx context.Context, path string, file *os.Fil
 
 		if newSize < currentOffset {
 			currentOffset = 0
-			reader = fp.resetReader(file)
 		}
 
 		if newSize > currentOffset {
-			currentOffset = fp.readNewLines(ctx, file, reader, currentOffset, source, path)
+			currentOffset = fp.readNewLines(ctx, file, currentOffset, source)
 		}
 	}
 }
@@ -294,14 +304,6 @@ func (fp *FileProvider) getFileSize(file *os.File) (int64, error) {
 	return fileInfo.Size(), nil
 }
 
-// resetReader сбрасывает reader после ротации файла.
-func (fp *FileProvider) resetReader(file *os.File) *bufio.Reader {
-	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		return bufio.NewReader(file)
-	}
-	return bufio.NewReader(file)
-}
-
 // sendWithTimeout отправляет лог в канал с таймаутом 10ms.
 func (fp *FileProvider) sendWithTimeout(ctx context.Context, logLine domain.LogLine) {
 	t := time.NewTimer(10 * time.Millisecond)
@@ -314,18 +316,15 @@ func (fp *FileProvider) sendWithTimeout(ctx context.Context, logLine domain.LogL
 }
 
 // readNewLines читает новые строки и возвращает новое смещение.
-func (fp *FileProvider) readNewLines(ctx context.Context, file *os.File, reader *bufio.Reader, currentOffset int64, source domain.Source, path string) int64 {
+func (fp *FileProvider) readNewLines(ctx context.Context, file *os.File, currentOffset int64, source domain.Source) int64 {
 	if _, err := file.Seek(currentOffset, io.SeekStart); err != nil {
 		return currentOffset
 	}
-	reader = bufio.NewReader(file)
+	reader := bufio.NewReader(file)
 
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
-			if err == io.EOF {
-				break
-			}
 			break
 		}
 
@@ -348,7 +347,7 @@ func (fp *FileProvider) readNewLines(ctx context.Context, file *os.File, reader 
 	if seekErr != nil {
 		return currentOffset
 	}
-	fp.updateOffset(path, newOffset)
+	fp.updateOffset(source.Path, newOffset)
 	return newOffset
 }
 
@@ -389,11 +388,7 @@ func (fp *FileProvider) ToggleSource(path string) {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
-	if fp.includeSources[path] {
-		fp.includeSources[path] = false
-	} else {
-		fp.includeSources[path] = true
-	}
+	fp.includeSources[path] = !fp.includeSources[path]
 }
 
 // IsSourceEnabled проверяет, включён ли источник.
@@ -413,10 +408,9 @@ func (fp *FileProvider) EnabledSources() map[string]bool {
 
 // Close закрывает FileProvider.
 func (fp *FileProvider) Close() error {
-	if fp.closed.Load() {
+	if !fp.closed.CompareAndSwap(false, true) {
 		return nil
 	}
-	fp.closed.Store(true)
 
 	close(fp.done)
 
@@ -440,6 +434,7 @@ type StdinProvider struct {
 	mu      sync.Mutex
 	closed  bool
 	done    chan struct{}
+	wg      sync.WaitGroup
 }
 
 // NewStdinProvider создаёт новый StdinProvider.
@@ -465,6 +460,7 @@ func (sp *StdinProvider) Start(ctx context.Context) error {
 		Path: "stdin",
 	}
 
+	sp.wg.Add(1)
 	go sp.readLines(ctx, source)
 
 	return nil
@@ -472,6 +468,8 @@ func (sp *StdinProvider) Start(ctx context.Context) error {
 
 // readLines читает строки из stdin.
 func (sp *StdinProvider) readLines(ctx context.Context, source domain.Source) {
+	defer sp.wg.Done()
+
 	scanner := bufio.NewScanner(sp.reader)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 
@@ -516,12 +514,6 @@ func (sp *StdinProvider) readLines(ctx context.Context, source domain.Source) {
 		slog.Error("stdin read error", "error", err)
 	}
 
-	sp.mu.Lock()
-	if !sp.closed {
-		sp.closed = true
-		close(sp.logChan)
-	}
-	sp.mu.Unlock()
 }
 
 // LogChan возвращает канал для получения логов.
@@ -537,12 +529,17 @@ func (sp *StdinProvider) Buffer() *domain.RingBuffer {
 // Close закрывает StdinProvider.
 func (sp *StdinProvider) Close() error {
 	sp.mu.Lock()
-	defer sp.mu.Unlock()
-	if !sp.closed {
-		sp.closed = true
-		close(sp.done)
-		close(sp.logChan)
+	if sp.closed {
+		sp.mu.Unlock()
+		return nil
 	}
+	sp.closed = true
+	close(sp.done)
+	sp.mu.Unlock()
+
+	sp.wg.Wait()
+
+	close(sp.logChan)
 	return nil
 }
 
@@ -581,7 +578,7 @@ func IsStdinPiped() bool {
 
 // ExpandPaths раскрывает glob паттерны в список путей.
 func ExpandPaths(paths []string) []string {
-	var result []string
+	result := make([]string, 0)
 	for _, p := range paths {
 		if len(p) > 0 {
 			matches, err := filepath.Glob(p)

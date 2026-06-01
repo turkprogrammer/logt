@@ -1,4 +1,3 @@
-// Package domain реализует парсинг времени для фильтрации логов.
 package domain
 
 import (

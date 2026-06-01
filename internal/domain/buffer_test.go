@@ -101,8 +101,8 @@ func TestRingBuffer_EmptyBuffer(t *testing.T) {
 	rb := NewRingBuffer(10)
 
 	lines := rb.GetAll()
-	if lines != nil {
-		t.Errorf("Expected nil for empty buffer, got %v", lines)
+	if len(lines) != 0 {
+		t.Errorf("Expected empty slice for empty buffer, got %v", lines)
 	}
 }
 

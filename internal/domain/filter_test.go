@@ -44,7 +44,11 @@ func TestGetFilteredCombined_JsonAndTime(t *testing.T) {
 		Value:    "error",
 	}
 
-	filtered := rb.GetFilteredCombined("", nil, &since, nil, jsonFilter)
+	filtered := rb.GetFilteredCombined(FilterOptions{
+		Text:       "",
+		Since:      &since,
+		JSONFilter: jsonFilter,
+	})
 
 	if len(filtered) != 1 {
 		t.Errorf("Expected 1 line, got %d", len(filtered))

@@ -86,8 +86,8 @@ func (s *Stats) String() string {
 	sb.WriteString(fmt.Sprintf("Errors: %d (%.2f%%)\n", s.ByLevel[LevelError]+s.ByLevel[LevelFatal], errorPct))
 
 	// По уровням
-	var levelParts []string
 	levels := []LogLevel{LevelError, LevelWarn, LevelInfo, LevelDebug}
+	levelParts := make([]string, 0, len(levels))
 	for _, level := range levels {
 		if count, ok := s.ByLevel[level]; ok && count > 0 {
 			levelParts = append(levelParts, fmt.Sprintf("%s=%d", level, count))

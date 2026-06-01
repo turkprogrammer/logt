@@ -11,7 +11,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -356,7 +355,7 @@ func (rb *RingBuffer) GetAll() []LogLine {
 	defer rb.mu.RUnlock()
 
 	if rb.count == 0 {
-		return nil
+		return []LogLine{}
 	}
 	result := make([]LogLine, rb.count)
 	if rb.count < rb.size {
@@ -368,30 +367,38 @@ func (rb *RingBuffer) GetAll() []LogLine {
 	return result
 }
 
+// FilterOptions содержит параметры фильтрации логов.
+type FilterOptions struct {
+	Text           string
+	IncludeSources map[string]bool
+	Since          *time.Time
+	Until          *time.Time
+	JSONFilter     *jsonpath.Filter
+}
+
 // GetFilteredCombined возвращает отфильтрованные строки с комбинацией фильтров.
 // Комбинирует текстовую фильтрацию, по времени и JSON Path.
-func (rb *RingBuffer) GetFilteredCombined(
-	filter string,
-	includeSources map[string]bool,
-	since, until *time.Time,
-	jsonFilter *jsonpath.Filter,
-) []LogLine {
+func (rb *RingBuffer) GetFilteredCombined(opts FilterOptions) []LogLine {
 	lines := rb.GetAll()
-	if filter == "" && len(includeSources) == 0 && since == nil && until == nil && jsonFilter == nil {
+	noFiltersActive := opts.Text == "" &&
+		len(opts.IncludeSources) == 0 &&
+		opts.Since == nil && opts.Until == nil &&
+		opts.JSONFilter == nil
+	if noFiltersActive {
 		return lines
 	}
 	filtered := make([]LogLine, 0, len(lines))
 	for _, line := range lines {
-		if !rb.matchSource(line, includeSources) {
+		if !rb.matchSource(line, opts.IncludeSources) {
 			continue
 		}
-		if !rb.matchTime(line, since, until) {
+		if !rb.matchTime(line, opts.Since, opts.Until) {
 			continue
 		}
-		if !rb.matchJSON(line, jsonFilter) {
+		if !rb.matchJSON(line, opts.JSONFilter) {
 			continue
 		}
-		if !rb.matchText(line, filter) {
+		if !rb.matchText(line, opts.Text) {
 			continue
 		}
 		filtered = append(filtered, line)
@@ -467,9 +474,6 @@ func ReadExistingContent(ctx context.Context, file *os.File, source Source, pars
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
-			if err == io.EOF {
-				break
-			}
 			break
 		}
 

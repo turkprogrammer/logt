@@ -1,4 +1,3 @@
-// Package ui реализует пользовательский интерфейс на основе Bubble Tea TUI framework.
 package ui
 
 import (
@@ -12,59 +11,58 @@ import (
 
 // Палитра цветов - приятная тёмная тема Catppuccin-inspired.
 var (
-	ColorBg      = lipgloss.Color("236") // #303446 - фон
-	ColorSurface = lipgloss.Color("235") // #292c3e - панели
-	ColorOverlay = lipgloss.Color("240") // #414559 - границы
-	ColorText    = lipgloss.Color("225") // #c6d0f5 - основной текст
-	ColorSubtext = lipgloss.Color("250") // #a6adc8 - вторичный текст
-	ColorBlue    = lipgloss.Color("12")  // #89b4fa - синий (info)
-	ColorGreen   = lipgloss.Color("10")  // #a6e3a1 - зелёный
-	ColorYellow  = lipgloss.Color("11")  // #f9e2af - жёлтый (warn)
-	ColorPeach   = lipgloss.Color("13")  // #fab387 - персиковый
-	ColorRed     = lipgloss.Color("9")   // #f38ba8 - красный (error)
-	ColorMauve   = lipgloss.Color("13")  // #cba6f7 - фиолетовый (JSON)
-	ColorPink    = lipgloss.Color("5")   // #f5c2e7 - розовый
-	ColorTeal    = lipgloss.Color("14")  // #94e2d5 - бирюзовый
+	colorBg      = lipgloss.Color("236") // #303446 - фон
+	colorSurface = lipgloss.Color("235") // #292c3e - панели
+	colorOverlay = lipgloss.Color("240") // #414559 - границы
+	colorText    = lipgloss.Color("225") // #c6d0f5 - основной текст
+	colorSubtext = lipgloss.Color("250") // #a6adc8 - вторичный текст
+	colorBlue    = lipgloss.Color("12")  // #89b4fa - синий (info)
+	colorGreen   = lipgloss.Color("10")  // #a6e3a1 - зелёный
+	colorYellow  = lipgloss.Color("11")  // #f9e2af - жёлтый (warn)
+	colorPeach   = lipgloss.Color("13")  // #fab387 - персиковый
+	colorRed     = lipgloss.Color("9")   // #f38ba8 - красный (error)
+	colorMauve   = lipgloss.Color("13")  // #cba6f7 - фиолетовый (JSON)
+	colorTeal    = lipgloss.Color("14")  // #94e2d5 - бирюзовый
 )
 
 // Стили отображения.
 var (
-	BorderStyle = lipgloss.NewStyle().
+	borderStyle = lipgloss.NewStyle().
 			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(ColorOverlay).
-			Background(ColorSurface)
-	TitleStyle     = lipgloss.NewStyle().Bold(true).Foreground(ColorText)
-	ContentStyle   = lipgloss.NewStyle().Foreground(ColorText)
-	StatusBarStyle = lipgloss.NewStyle().
-			Background(ColorOverlay).
-			Foreground(ColorText).
+			BorderForeground(colorOverlay).
+			Background(colorSurface)
+	titleStyle     = lipgloss.NewStyle().Bold(true).Foreground(colorText)
+	contentStyle   = lipgloss.NewStyle().Foreground(colorText)
+	statusBarStyle = lipgloss.NewStyle().
+			Background(colorOverlay).
+			Foreground(colorText).
 			Padding(0, 1)
-	FilterBarStyle = lipgloss.NewStyle().
-			Background(ColorBlue).
-			Foreground(ColorBg).
+	filterBarStyle = lipgloss.NewStyle().
+			Background(colorBlue).
+			Foreground(colorBg).
 			Padding(0, 1)
-	RegexBarStyle = lipgloss.NewStyle().
-			Background(ColorMauve).
-			Foreground(ColorBg).
+	regexBarStyle = lipgloss.NewStyle().
+			Background(colorMauve).
+			Foreground(colorBg).
 			Padding(0, 1)
-	JSONViewStyle = lipgloss.NewStyle().
+	jsonViewStyle = lipgloss.NewStyle().
 			BorderStyle(lipgloss.DoubleBorder()).
-			BorderForeground(ColorMauve).
-			Background(ColorSurface).
-			Foreground(ColorText).
+			BorderForeground(colorMauve).
+			Background(colorSurface).
+			Foreground(colorText).
 			Padding(1, 2)
-	JSONKeyStyle     = lipgloss.NewStyle().Foreground(ColorBlue).Bold(false)
-	JSONValueStr     = lipgloss.NewStyle().Foreground(ColorGreen)
-	JSONValueNum     = lipgloss.NewStyle().Foreground(ColorPeach)
-	JSONValueBool    = lipgloss.NewStyle().Foreground(ColorYellow)
-	SourcePanelStyle = lipgloss.NewStyle().
+	jsonKeyStyle     = lipgloss.NewStyle().Foreground(colorBlue).Bold(false)
+	jsonValueStr     = lipgloss.NewStyle().Foreground(colorGreen)
+	jsonValueNum     = lipgloss.NewStyle().Foreground(colorPeach)
+	jsonValueBool    = lipgloss.NewStyle().Foreground(colorYellow)
+	sourcePanelStyle = lipgloss.NewStyle().
 				BorderStyle(lipgloss.RoundedBorder()).
-				BorderForeground(ColorTeal).
-				Background(ColorSurface).
+				BorderForeground(colorTeal).
+				Background(colorSurface).
 				Padding(1).
 				Width(30)
-	EmptyStyle = lipgloss.NewStyle().
-			Foreground(ColorSubtext).
+	emptyStyle = lipgloss.NewStyle().
+			Foreground(colorSubtext).
 			AlignVertical(lipgloss.Center).
 			AlignHorizontal(lipgloss.Center)
 )
@@ -114,7 +112,7 @@ func (m *Model) View() string {
 func (m *Model) renderLogView(width, height int) string {
 	lines := m.VisibleLines()
 	if len(lines) == 0 {
-		emptyMsg := EmptyStyle.Width(width).Height(height).Render("No logs to display")
+		emptyMsg := emptyStyle.Width(width).Height(height).Render("No logs to display")
 		return emptyMsg
 	}
 
@@ -164,11 +162,11 @@ func (m *Model) calculateViewport(totalLines, height int) (start, end int) {
 func (m *Model) renderLogLine(line domain.LogLine, index, width int) string {
 	style := GetLevelStyle(line.Level)
 	if line.IsJSON {
-		style = lipgloss.NewStyle().Foreground(ColorMauve)
+		style = lipgloss.NewStyle().Foreground(colorMauve)
 	}
 
 	if index == m.SelectedLine {
-		style = style.Background(ColorOverlay).Foreground(ColorText)
+		style = style.Background(colorOverlay).Foreground(colorText)
 	}
 
 	content := m.formatLine(line, width-5)
@@ -177,8 +175,8 @@ func (m *Model) renderLogLine(line domain.LogLine, index, width int) string {
 	sourceName := fmt.Sprintf(" %-12s", truncate(line.Source.Name, 12))
 
 	lineStr := fmt.Sprintf("%s%s%s %s",
-		lipgloss.NewStyle().Foreground(ColorOverlay).Render(lineNum),
-		lipgloss.NewStyle().Foreground(ColorTeal).Render(sourceName),
+		lipgloss.NewStyle().Foreground(colorOverlay).Render(lineNum),
+		lipgloss.NewStyle().Foreground(colorTeal).Render(sourceName),
 		style.Render(truncate(content, width-20)),
 		style.Render(getLevelTag(line.Level)),
 	)
@@ -227,10 +225,10 @@ func (m *Model) renderFilterBar() string {
 	prompt := "/"
 
 	if m.FilterMode == FilterRegex {
-		barStyle = RegexBarStyle
+		barStyle = regexBarStyle
 		prompt = ".* "
 	} else {
-		barStyle = FilterBarStyle
+		barStyle = filterBarStyle
 		prompt = "/ "
 	}
 
@@ -242,7 +240,7 @@ func (m *Model) renderFilterBar() string {
 	input := fmt.Sprintf("%s%s%s", barStyle.Render(prompt), m.FilterText, cursor)
 
 	if m.RegexError != "" {
-		input += " " + lipgloss.NewStyle().Foreground(ColorRed).Render(m.RegexError)
+		input += " " + lipgloss.NewStyle().Foreground(colorRed).Render(m.RegexError)
 	}
 
 	return input + "\n"
@@ -251,14 +249,14 @@ func (m *Model) renderFilterBar() string {
 // renderStatusBar рендерит статус-бар.
 func (m *Model) renderStatusBar() string {
 	status := m.StatusText()
-	return StatusBarStyle.Width(m.Width).Render(status)
+	return statusBarStyle.Width(m.Width).Render(status)
 }
 
 // renderSourcePanel рендерит панель источников.
 func (m *Model) renderSourcePanel() string {
 	var sb strings.Builder
 
-	title := SourcePanelStyle.Render("Sources")
+		title := sourcePanelStyle.Render("Sources")
 	sb.WriteString(title)
 	sb.WriteString("\n")
 
@@ -288,7 +286,7 @@ func (m *Model) renderBookmarkView() string {
 	lines := m.VisibleBookmarkLines()
 
 	if len(lines) == 0 {
-		emptyMsg := EmptyStyle.Width(m.Width).Height(m.Height).Render("No bookmarks\n\nPress 'm' to bookmark a line")
+		emptyMsg := emptyStyle.Width(m.Width).Height(m.Height).Render("No bookmarks\n\nPress 'm' to bookmark a line")
 		return emptyMsg
 	}
 
@@ -297,8 +295,8 @@ func (m *Model) renderBookmarkView() string {
 	// Заголовок
 	header := fmt.Sprintf(" Bookmarks (%d) ", len(lines))
 	sb.WriteString(lipgloss.NewStyle().
-		Background(ColorMauve).
-		Foreground(ColorBg).
+		Background(colorMauve).
+		Foreground(colorBg).
 		Bold(true).
 		Padding(0, 1).
 		Render(header))
@@ -308,14 +306,14 @@ func (m *Model) renderBookmarkView() string {
 	for i, line := range lines {
 		style := GetLevelStyle(line.Level)
 		if i == m.SelectedLine {
-			style = style.Background(ColorOverlay).Foreground(ColorText)
+			style = style.Background(colorOverlay).Foreground(colorText)
 		}
 
 		lineNum := fmt.Sprintf("%4d ", i+1)
 		content := truncate(line.Content, m.Width-20)
 
 		lineStr := fmt.Sprintf("%s%s %s",
-			lipgloss.NewStyle().Foreground(ColorOverlay).Render(lineNum),
+			lipgloss.NewStyle().Foreground(colorOverlay).Render(lineNum),
 			style.Render(content),
 			style.Render(getLevelTag(line.Level)),
 		)
@@ -326,7 +324,7 @@ func (m *Model) renderBookmarkView() string {
 
 	// Подсказка
 	sb.WriteString("\n")
-	sb.WriteString(StatusBarStyle.Width(m.Width).Render("ESC: close | m: add | e: export | ↑↓: navigate"))
+	sb.WriteString(statusBarStyle.Width(m.Width).Render("ESC: close | m: add | e: export | ↑↓: navigate"))
 
 	return sb.String()
 }
@@ -345,7 +343,7 @@ func (m *Model) renderJSONView() string {
 	sb.WriteString("\n")
 
 	// Разделитель
-	separator := lipgloss.NewStyle().Foreground(ColorOverlay).Render(strings.Repeat("─", min(m.Width, 60)))
+	separator := lipgloss.NewStyle().Foreground(colorOverlay).Render(strings.Repeat("─", min(m.Width, 60)))
 	sb.WriteString(separator)
 	sb.WriteString("\n")
 
@@ -359,7 +357,7 @@ func (m *Model) renderJSONView() string {
 	sb.WriteString("\n")
 
 	// Подсказка
-	sb.WriteString(StatusBarStyle.Width(m.Width).Render("ESC/Q: close | ↑↓: navigate | Enter: copy value"))
+	sb.WriteString(statusBarStyle.Width(m.Width).Render("ESC/Q: close | ↑↓: navigate | Enter: copy value"))
 
 	return sb.String()
 }
@@ -368,8 +366,8 @@ func (m *Model) renderJSONView() string {
 func (m *Model) renderJSONHeader(sourceName string) string {
 	header := fmt.Sprintf(" JSON: %s ", sourceName)
 	return lipgloss.NewStyle().
-		Background(ColorMauve).
-		Foreground(ColorBg).
+		Background(colorMauve).
+		Foreground(colorBg).
 		Bold(true).
 		Padding(0, 1).
 		Render(header)
@@ -382,13 +380,13 @@ func (m *Model) renderJSONKeyLine(key string, value any, selected bool) string {
 		prefix = "▶ "
 	}
 
-	keyStr := JSONKeyStyle.Render(truncate(key, 20))
+	keyStr := jsonKeyStyle.Render(truncate(key, 20))
 	valueStr := formatJSONValue(value)
 
 	line := fmt.Sprintf("%s%s%s  %s",
-		lipgloss.NewStyle().Foreground(ColorSubtext).Render(prefix),
+		lipgloss.NewStyle().Foreground(colorSubtext).Render(prefix),
 		keyStr,
-		lipgloss.NewStyle().Foreground(ColorOverlay).Render(":"),
+		lipgloss.NewStyle().Foreground(colorOverlay).Render(":"),
 		valueStr,
 	)
 
@@ -403,15 +401,15 @@ func (m *Model) renderJSONKeyLine(key string, value any, selected bool) string {
 func formatJSONValue(v any) string {
 	switch val := v.(type) {
 	case string:
-		return JSONValueStr.Render(fmt.Sprintf("%q", truncate(val, 50)))
+		return jsonValueStr.Render(fmt.Sprintf("%q", truncate(val, 50)))
 	case float64:
-		return JSONValueNum.Render(fmt.Sprintf("%.0f", val))
+		return jsonValueNum.Render(fmt.Sprintf("%.0f", val))
 	case bool:
-		return JSONValueBool.Render(fmt.Sprintf("%t", val))
+		return jsonValueBool.Render(fmt.Sprintf("%t", val))
 	case nil:
-		return lipgloss.NewStyle().Foreground(ColorSubtext).Render("null")
+		return lipgloss.NewStyle().Foreground(colorSubtext).Render("null")
 	default:
-		return lipgloss.NewStyle().Foreground(ColorSubtext).Render(fmt.Sprintf("%v", val))
+		return lipgloss.NewStyle().Foreground(colorSubtext).Render(fmt.Sprintf("%v", val))
 	}
 }
 
@@ -440,14 +438,14 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 
-	result := ""
+	var sb strings.Builder
 	for _, r := range s {
-		if runewidth.StringWidth(result)+runewidth.RuneWidth(r) > maxLen-2 {
+		if runewidth.StringWidth(sb.String())+runewidth.RuneWidth(r) > maxLen-2 {
 			break
 		}
-		result += string(r)
+		sb.WriteRune(r)
 	}
-	return result + ".."
+	return sb.String() + ".."
 }
 
 // truncateWithANSI обрезает строку с учётом ANSI кодов.
@@ -457,22 +455,22 @@ func truncateWithANSI(s string, maxLen int) string {
 		return s
 	}
 
-	result := ""
+	var sb strings.Builder
 	visibleCount := 0
 	inANSI := false
 
 	for _, r := range s {
 		if r == '\x02' || r == '\x03' {
-			result += string(r)
+			sb.WriteRune(r)
 			continue
 		}
 		if r == '\x1b' {
 			inANSI = true
-			result += string(r)
+			sb.WriteRune(r)
 			continue
 		}
 		if inANSI {
-			result += string(r)
+			sb.WriteRune(r)
 			if r == 'm' {
 				inANSI = false
 			}
@@ -480,15 +478,15 @@ func truncateWithANSI(s string, maxLen int) string {
 		}
 
 		if visibleCount >= maxLen-2 {
-			result += ".."
+			sb.WriteString("..")
 			break
 		}
 
-		result += string(r)
+		sb.WriteRune(r)
 		visibleCount += runewidth.RuneWidth(r)
 	}
 
-	return result
+	return sb.String()
 }
 
 // stripANSI удаляет ANSI коды из строки.

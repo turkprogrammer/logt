@@ -18,7 +18,7 @@ type Bookmark struct {
 
 // BookmarkManager управляет коллекцией bookmarks.
 type BookmarkManager struct {
-	mu        sync.Mutex
+	mu        sync.RWMutex
 	bookmarks []Bookmark
 	path      string // Путь к файлу сохранения
 }
@@ -51,8 +51,8 @@ func (bm *BookmarkManager) Add(line LogLine, note string) {
 
 // GetAll возвращает все bookmarks.
 func (bm *BookmarkManager) GetAll() []Bookmark {
-	bm.mu.Lock()
-	defer bm.mu.Unlock()
+	bm.mu.RLock()
+	defer bm.mu.RUnlock()
 	result := make([]Bookmark, len(bm.bookmarks))
 	copy(result, bm.bookmarks)
 	return result
@@ -117,7 +117,7 @@ func (bm *BookmarkManager) Load(path string) error {
 	defer bm.mu.Unlock()
 	bm.bookmarks = make([]Bookmark, 0, len(yamlData.Bookmarks))
 	for _, yb := range yamlData.Bookmarks {
-		bm.bookmarks = append(bm.bookmarks, yb.ToBookmark())
+		bm.bookmarks = append(bm.bookmarks, yb.toBookmark())
 	}
 
 	return nil
@@ -158,8 +158,8 @@ func (bm *BookmarkManager) toYAML() map[string][]yamlBookmark {
 	}
 }
 
-// ToBookmark конвертирует yamlBookmark в Bookmark.
-func (yb yamlBookmark) ToBookmark() Bookmark {
+// toBookmark конвертирует yamlBookmark в Bookmark.
+func (yb yamlBookmark) toBookmark() Bookmark {
 	return Bookmark{
 		Line: LogLine{
 			Content:   yb.Line.Content,

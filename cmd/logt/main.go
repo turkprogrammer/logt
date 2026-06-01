@@ -99,19 +99,7 @@ func runStdin(cfg *config.Config) {
 	run(ctx, mp, cfg)
 }
 
-func run(ctx context.Context, mp *provider.MultiProvider, cfg *config.Config) {
-	// Headless режим
-	if cfg.Headless {
-		runHeadless(mp, cfg)
-		return
-	}
-
-	if cfg.Forward != "" {
-		go startForwarding(mp, cfg.Forward)
-	}
-
-	// Парсинг временных фильтров
-	var since, until *time.Time
+func parseFilters(cfg *config.Config) (since, until *time.Time, jsonFilter *jsonpath.Filter) {
 	if cfg.Since != "" {
 		t, err := domain.ParseSince(cfg.Since)
 		if err != nil {
@@ -128,18 +116,27 @@ func run(ctx context.Context, mp *provider.MultiProvider, cfg *config.Config) {
 			until = &t
 		}
 	}
-
-	// Парсинг JSON Path фильтра
-	var jsonFilter *jsonpath.Filter
 	if cfg.JSONFilter != "" {
 		var err error
 		jsonFilter, err = jsonpath.Parse(cfg.JSONFilter)
 		if err != nil {
 			log.Printf("Warning: invalid --json value %q: %v", cfg.JSONFilter, err)
-			jsonFilter = nil
 		}
 	}
+	return
+}
 
+func run(ctx context.Context, mp *provider.MultiProvider, cfg *config.Config) {
+	if cfg.Headless {
+		runHeadless(mp, cfg)
+		return
+	}
+
+	if cfg.Forward != "" {
+		go startForwarding(ctx, mp, cfg.Forward)
+	}
+
+	since, until, jsonFilter := parseFilters(cfg)
 	model := ui.NewModel(mp, since, until, jsonFilter)
 
 	p := tea.NewProgram(model,
@@ -174,7 +171,7 @@ func showHelp() {
 	fmt.Println("\nConfig: ~/.config/logt/config.yaml or ./logt.yaml")
 }
 
-func startForwarding(mp *provider.MultiProvider, forwardPath string) {
+func startForwarding(ctx context.Context, mp *provider.MultiProvider, forwardPath string) {
 	var writer io.WriteCloser
 	var err error
 
@@ -189,7 +186,15 @@ func startForwarding(mp *provider.MultiProvider, forwardPath string) {
 		defer writer.Close()
 	}
 
-	for logLine := range mp.LogChan() {
-		fmt.Fprintln(writer, logLine.Content)
+	for {
+		select {
+		case logLine, ok := <-mp.LogChan():
+			if !ok {
+				return
+			}
+			fmt.Fprintln(writer, logLine.Content)
+		case <-ctx.Done():
+			return
+		}
 	}
 }

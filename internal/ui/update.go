@@ -1,4 +1,3 @@
-// Package ui реализует пользовательский интерфейс на основе Bubble Tea TUI framework.
 package ui
 
 import (
@@ -115,14 +114,15 @@ func (m *Model) handleEnter() (tea.Model, tea.Cmd) {
 		}
 		m.UpdateSearchMatches()
 		m.FilterMode = FilterNone
-	} else {
-		lines := m.VisibleLines()
-		if m.SelectedLine >= 0 && m.SelectedLine < len(lines) {
-			line := lines[m.SelectedLine]
-			if line.IsJSON {
-				m.ExpandJSON(m.SelectedLine)
-			}
-		}
+		return m, nil
+	}
+
+	lines := m.VisibleLines()
+	if m.SelectedLine < 0 || m.SelectedLine >= len(lines) {
+		return m, nil
+	}
+	if lines[m.SelectedLine].IsJSON {
+		m.ExpandJSON(m.SelectedLine)
 	}
 	return m, nil
 }

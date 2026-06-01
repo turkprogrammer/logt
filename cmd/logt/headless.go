@@ -40,12 +40,9 @@ func printStats(buffer *domain.RingBuffer) {
 
 // printTail выводит последние N строк.
 func printTail(buffer *domain.RingBuffer, tail int, exportPath string) {
-	var lines []domain.LogLine
-
+	lines := buffer.GetAll()
 	if tail > 0 {
 		lines = buffer.GetLastN(tail)
-	} else {
-		lines = buffer.GetAll()
 	}
 
 	var writer io.WriteCloser = os.Stdout

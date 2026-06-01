@@ -102,7 +102,7 @@ func NewModel(p provider.Provider, since, until *time.Time, jsonFilter *jsonpath
 		ShowSourcePanel: false,
 		Sources:         sources,
 		IncludeSources:  includeSources,
-		SearchMatches:   nil,
+		SearchMatches:   []int{},
 		CurrentMatch:    -1,
 		Since:           since,
 		Until:           until,
@@ -121,7 +121,13 @@ func (m *Model) SetSize(width, height int) {
 
 // VisibleLines возвращает видимые (отфильтрованные) строки.
 func (m *Model) VisibleLines() []domain.LogLine {
-	return m.Buffer.GetFilteredCombined(m.FilterText, m.IncludeSources, m.Since, m.Until, m.JSONFilter)
+	return m.Buffer.GetFilteredCombined(domain.FilterOptions{
+		Text:           m.FilterText,
+		IncludeSources: m.IncludeSources,
+		Since:          m.Since,
+		Until:          m.Until,
+		JSONFilter:     m.JSONFilter,
+	})
 }
 
 // VisibleBookmarkLines возвращает строки из bookmarks.
@@ -239,8 +245,8 @@ func (m *Model) NavigateToMatch(direction int) {
 
 // UpdateSearchMatches обновляет список совпадений.
 func (m *Model) UpdateSearchMatches() {
-	matches := make([]int, 0)
 	lines := m.VisibleLines()
+	matches := make([]int, 0, len(lines))
 	pattern := strings.ToLower(m.FilterText)
 
 	for i, line := range lines {
@@ -322,14 +328,14 @@ func (m *Model) StatusText() string {
 
 // Стили отображения для разных уровней логирования.
 var (
-	InfoStyle     = lipgloss.NewStyle().Foreground(ColorBlue)
-	WarnStyle     = lipgloss.NewStyle().Foreground(ColorYellow)
-	ErrorStyle    = lipgloss.NewStyle().Foreground(ColorRed)
-	DebugStyle    = lipgloss.NewStyle().Foreground(ColorSubtext)
-	FatalStyle    = lipgloss.NewStyle().Foreground(ColorRed).Bold(true)
-	JSONStyle     = lipgloss.NewStyle().Foreground(ColorMauve)
-	SourceStyle   = lipgloss.NewStyle().Foreground(ColorTeal)
-	SelectedStyle = lipgloss.NewStyle().Background(ColorOverlay).Foreground(ColorText)
+	InfoStyle     = lipgloss.NewStyle().Foreground(colorBlue)
+	WarnStyle     = lipgloss.NewStyle().Foreground(colorYellow)
+	ErrorStyle    = lipgloss.NewStyle().Foreground(colorRed)
+	DebugStyle    = lipgloss.NewStyle().Foreground(colorSubtext)
+	FatalStyle    = lipgloss.NewStyle().Foreground(colorRed).Bold(true)
+	JSONStyle     = lipgloss.NewStyle().Foreground(colorMauve)
+	SourceStyle   = lipgloss.NewStyle().Foreground(colorTeal)
+	SelectedStyle = lipgloss.NewStyle().Background(colorOverlay).Foreground(colorText)
 )
 
 // GetLevelStyle возвращает стиль для указанного уровня логирования.
