@@ -94,15 +94,13 @@ func (wp *WatcherProvider) addWatch(path string) error {
 		return err
 	}
 
+	wp.sources[path] = true
+	wp.includeSources[path] = true
+
 	if fileInfo.IsDir() {
 		return wp.watcher.AddRecursive(path)
 	}
 	return wp.watcher.Add(path)
-
-	wp.sources[path] = true
-	wp.includeSources[path] = true
-
-	return nil
 }
 
 // watchLoop обрабатывает события от watcher.
