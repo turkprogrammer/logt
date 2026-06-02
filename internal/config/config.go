@@ -88,20 +88,30 @@ func Load() (*Config, error) {
 	pflag.CommandLine.BoolP("version", "v", false, "Версия")
 	pflag.CommandLine.BoolP("help", "h", false, "Помощь")
 
-	viper.BindPFlag("path", pflag.CommandLine.Lookup("path"))
-	viper.BindPFlag("level", pflag.CommandLine.Lookup("level"))
-	viper.BindPFlag("buffer-size", pflag.CommandLine.Lookup("buffer"))
-	viper.BindPFlag("buffer-max", pflag.CommandLine.Lookup("max-buffer"))
-	viper.BindPFlag("theme", pflag.CommandLine.Lookup("theme"))
-	viper.BindPFlag("forward", pflag.CommandLine.Lookup("forward"))
-	viper.BindPFlag("since", pflag.CommandLine.Lookup("since"))
-	viper.BindPFlag("until", pflag.CommandLine.Lookup("until"))
-	viper.BindPFlag("json-filter", pflag.CommandLine.Lookup("json"))
-	viper.BindPFlag("headless", pflag.CommandLine.Lookup("headless"))
-	viper.BindPFlag("tail", pflag.CommandLine.Lookup("tail"))
-	viper.BindPFlag("stats", pflag.CommandLine.Lookup("stats"))
-	viper.BindPFlag("export", pflag.CommandLine.Lookup("export"))
-	viper.BindPFlag("color", pflag.CommandLine.Lookup("color"))
+	bindFlags := []struct {
+		key  string
+		flag string
+	}{
+		{"path", "path"},
+		{"level", "level"},
+		{"buffer-size", "buffer"},
+		{"buffer-max", "max-buffer"},
+		{"theme", "theme"},
+		{"forward", "forward"},
+		{"since", "since"},
+		{"until", "until"},
+		{"json-filter", "json"},
+		{"headless", "headless"},
+		{"tail", "tail"},
+		{"stats", "stats"},
+		{"export", "export"},
+		{"color", "color"},
+	}
+	for _, b := range bindFlags {
+		if err := viper.BindPFlag(b.key, pflag.CommandLine.Lookup(b.flag)); err != nil {
+			return nil, fmt.Errorf("bind flag %q: %w", b.flag, err)
+		}
+	}
 
 	pflag.Parse()
 

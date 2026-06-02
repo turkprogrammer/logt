@@ -6,7 +6,9 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/charmbracelet/bubbletea"
@@ -18,7 +20,15 @@ import (
 	"github.com/turkprogrammer/logt/internal/ui"
 )
 
-var version = "0.5.0"
+// version устанавливается при сборке через -ldflags "-X main.version=..."
+var version = "dev"
+
+// Коды выхода (Unix convention).
+const (
+	exitOK      = 0
+	exitRuntime = 1
+	exitUsage   = 2
+)
 
 func main() {
 	// Обработка subcommands (должно быть до парсинга flags)
@@ -57,8 +67,8 @@ func showVersion(cfg *config.Config) {
 }
 
 func runWithPaths(paths []string, cfg *config.Config) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	var fileProvider provider.Provider
 	mp := provider.NewMultiProvider()
@@ -74,26 +84,29 @@ func runWithPaths(paths []string, cfg *config.Config) {
 
 	expandedPaths := provider.ExpandPaths(paths)
 	if len(expandedPaths) == 0 {
-		log.Fatalf("No files found matching: %v", paths)
+		fmt.Fprintf(os.Stderr, "No files found matching: %v\n", paths)
+		os.Exit(exitUsage)
 	}
 
 	if err := fileProvider.Watch(ctx, expandedPaths); err != nil {
-		log.Fatalf("Failed to watch files: %v", err)
+		fmt.Fprintf(os.Stderr, "Failed to watch files: %v\n", err)
+		os.Exit(exitRuntime)
 	}
 
 	run(ctx, mp, cfg)
 }
 
 func runStdin(cfg *config.Config) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	stdinProvider := provider.NewStdinProvider()
 	mp := provider.NewMultiProvider()
 	mp.AddProvider(stdinProvider)
 
 	if err := stdinProvider.Start(ctx); err != nil {
-		log.Fatalf("Failed to start stdin provider: %v", err)
+		fmt.Fprintf(os.Stderr, "Failed to start stdin provider: %v\n", err)
+		os.Exit(exitRuntime)
 	}
 
 	run(ctx, mp, cfg)
@@ -145,7 +158,8 @@ func run(ctx context.Context, mp *provider.MultiProvider, cfg *config.Config) {
 	)
 
 	if _, err := p.Run(); err != nil {
-		log.Fatalf("Failed to run UI: %v", err)
+		fmt.Fprintf(os.Stderr, "Failed to run UI: %v\n", err)
+		os.Exit(exitRuntime)
 	}
 }
 
