@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>LogT — TUI Log Viewer для Go | Фильтрация JSON, Tail, Headless</title>
+    <meta name="description" content="LogT — современный TUI log viewer для Go приложений. Фильтрация по времени (--since/--until), JSON Path, подсветка уровней, headless режим. Поддержка JSON, Logfmt, Plain. 125 тестов, Go 1.21+.">
+    <meta name="keywords" content="log viewer, logt, go log viewer, tui log viewer, json log parser, log filtering, tail -f, go logger, log analyzer, structured logs, json path filter, log monitoring, просмотр логов, анализ логов, go приложение, терминальный log viewer, фильтрация логов, json path, headless, log forwarding, bookmarks">
+    <meta name="author" content="turkprogrammer">
+    <meta name="language" content="ru">
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+    <meta name="revisit-after" content="3 days">
+    <link rel="canonical" href="https://turkprogrammer.github.io/logt/">
+
+    <!-- Yandex -->
+    <meta name="icb" content="true">
+    <meta name="geo" content="RU">
+    <meta name="geo.placename" content="Russia">
+    <meta name="geo.position" content="55.7558;37.6173">
+    <meta name="geo.region" content="RU-MOW">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="LogT — TUI Log Viewer для Go приложений">
+    <meta property="og:description" content="Современный TUI log viewer для Go. Фильтрация по времени, JSON Path, headless режим. Поддержка JSON, Logfmt, Plain форматов.">
+    <meta property="og:url" content="https://turkprogrammer.github.io/logt/">
+    <meta property="og:site_name" content="LogT — Modern TUI Log Viewer">
+    <meta property="og:locale" content="ru_RU">
+    <meta property="og:image" content="https://turkprogrammer.github.io/logt/favicon.svg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="LogT — TUI Log Viewer для Go">
+    <meta property="article:author" content="https://github.com/turkprogrammer">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="LogT — TUI Log Viewer для Go приложений">
+    <meta name="twitter:description" content="Современный TUI log viewer. Фильтрация, JSON Path, headless режим. Go 1.21+.">
+    <meta name="twitter:creator" content="@turkprogrammer">
+    <meta name="twitter:image" content="https://turkprogrammer.github.io/logt/favicon.svg">
+
+    <!-- Mobile -->
+    <meta name="theme-color" content="#0a0e14">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="apple-touch-icon" href="favicon.svg">
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "LogT",
+        "alternateName": "logt",
+        "description": "Современный TUI log viewer для Go приложений. Фильтрация по времени, JSON Path, цветовая подсветка, headless режим. Поддержка JSON, Logfmt, Plain форматов.",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Cross-platform (Linux, macOS, Windows)",
+        "url": "https://turkprogrammer.github.io/logt/",
+        "downloadUrl": "https://github.com/turkprogrammer/logt/releases",
+        "installUrl": "https://github.com/turkprogrammer/logt#установка",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD",
+            "availability": "https://schema.org/OnlineOnly"
+        },
+        "softwareHelp": {
+            "@type": "HelpDocument",
+            "url": "https://github.com/turkprogrammer/logt/blob/master/README.md",
+            "name": "Документация LogT"
+        },
+        "programmingLanguage": {
+            "@type": "ComputerLanguage",
+            "name": "Go",
+            "url": "https://go.dev/"
+        },
+        "runtimePlatform": "Go 1.21+",
+        "featureList": [
+            "TUI интерфейс на Bubble Tea",
+            "Фильтрация по времени (--since, --until)",
+            "JSON Path фильтры",
+            "Поддержка JSON, Logfmt, Plain форматов",
+            "Headless режим для скриптов",
+            "Log Forwarding в файл или stdout",
+            "Bookmarks с экспортом в YAML",
+            "Shell completions (bash, zsh, fish)",
+            "Цветовая подсветка уровней логов",
+            "Ring Buffer 5000 строк",
+            "Stdin поддержка (cat file | logt)",
+            "Live Tail с авто-прокруткой"
+        ],
+        "screenshot": "https://turkprogrammer.github.io/logt/",
+        "dateCreated": "2024-01-01",
+        "dateModified": "2026-06-02",
+        "datePublished": "2024-01-01",
+        "author": {
+            "@type": "Person",
+            "name": "Юсупов Роберт Рахимович",
+            "alternateName": "turkprogrammer",
+            "url": "https://github.com/turkprogrammer",
+            "jobTitle": "Senior Backend Engineer"
+        },
+        "keywords": "log viewer, tui, go, golang, json, logfmt, tail, filtering, headless, bookmarks, ring buffer",
+        "inLanguage": "ru",
+        "isAccessibleForFree": true,
+        "license": "https://opensource.org/licenses/MIT"
+    }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-deep: #0a0e14;
+            --bg-panel: #111520;
+            --bg-card: #151a24;
+            --text-main: #c5cdd9;
+            --text-muted: #4a5568;
+            --text-bright: #e2e8f0;
+            --accent-cyan: #00e5ff;
+            --accent-green: #00e676;
+            --accent-red: #ff5252;
+            --accent-orange: #ff9100;
+            --accent-purple: #b388ff;
+            --accent-yellow: #ffd740;
+            --grid-line: rgba(255, 255, 255, 0.06);
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --glow-cyan: 0 0 20px rgba(0, 229, 255, 0.15);
+            --glow-green: 0 0 20px rgba(0, 230, 118, 0.15);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            font-family: var(--font-mono);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        .noise {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 999; opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+
+        .scanline {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 998;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 0, 0, 0.03) 2px,
+                rgba(0, 0, 0, 0.03) 4px
+            );
+        }
+
+        /* Scroll progress */
+        .scroll-progress {
+            position: fixed; top: 0; left: 0; height: 2px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green));
+            z-index: 10000; width: 0%; transition: width 0.1s linear;
+        }
+
+        /* Mouse glow */
+        .mouse-glow {
+            position: fixed; width: 300px; height: 300px;
+            background: radial-gradient(circle, rgba(0, 229, 255, 0.06) 0%, transparent 70%);
+            pointer-events: none; z-index: 1; transform: translate(-50%, -50%);
+            opacity: 0; transition: opacity 0.3s;
+        }
+        body:hover .mouse-glow { opacity: 1; }
+
+        .container {
+            max-width: 1200px; margin: 0 auto; padding: 2rem;
+            display: grid; gap: 3rem; position: relative; z-index: 2;
+        }
+
+        /* Header */
+        header {
+            display: flex; justify-content: space-between; align-items: flex-end;
+            border-bottom: 1px solid var(--grid-line); padding-bottom: 2rem;
+        }
+
+        .logo-area { display: flex; align-items: center; gap: 1rem; }
+
+        .logo-icon {
+            width: 48px; height: 48px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green));
+            border-radius: 8px; display: flex; align-items: center; justify-content: center;
+            font-family: var(--font-mono); font-weight: 700; font-size: 1.2rem;
+            color: var(--bg-deep); box-shadow: var(--glow-cyan);
+        }
+
+        h1 {
+            font-family: var(--font-display); font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-weight: 700; line-height: 0.95; letter-spacing: -0.02em;
+            background: linear-gradient(135deg, var(--accent-cyan), #fff 60%, var(--accent-green));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+
+        .tagline {
+            font-size: 0.9rem; color: var(--accent-cyan);
+            text-transform: uppercase; letter-spacing: 0.15em; margin-top: 0.75rem;
+            font-family: var(--font-mono);
+        }
+
+        .header-right { text-align: right; }
+        .version-badge {
+            display: inline-block; padding: 0.3rem 0.8rem;
+            border: 1px solid var(--accent-cyan); color: var(--accent-cyan);
+            font-size: 0.75rem; letter-spacing: 0.1em;
+            background: rgba(0, 229, 255, 0.05);
+        }
+
+        .github-link {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            margin-top: 0.75rem; color: var(--text-muted); text-decoration: none;
+            font-size: 0.85rem; transition: color 0.2s;
+        }
+        .github-link:hover { color: var(--accent-cyan); }
+
+        /* Terminal Demo */
+        .terminal-demo {
+            background: var(--bg-panel);
+            border: 1px solid var(--grid-line);
+            position: relative; overflow: hidden;
+        }
+
+        .terminal-demo::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+        }
+
+        .terminal-header {
+            display: flex; align-items: center; gap: 0.75rem;
+            padding: 1rem 1.5rem; border-bottom: 1px solid var(--grid-line);
+            background: rgba(0, 229, 255, 0.02);
+        }
+
+        .terminal-dots { display: flex; gap: 6px; }
+        .terminal-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .terminal-dot:nth-child(1) { background: var(--accent-red); }
+        .terminal-dot:nth-child(2) { background: var(--accent-yellow); }
+        .terminal-dot:nth-child(3) { background: var(--accent-green); }
+
+        .terminal-title {
+            font-size: 0.75rem; color: var(--text-muted); letter-spacing: 0.05em;
+            flex: 1; text-align: center;
+        }
+
+        .terminal-body {
+            padding: 1.5rem; font-size: 0.85rem; min-height: 320px;
+            position: relative;
+        }
+
+        .terminal-cmd {
+            color: var(--text-muted); margin-bottom: 1rem;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .terminal-cmd .prompt { color: var(--accent-green); }
+        .terminal-cmd .cmd { color: var(--accent-cyan); }
+        .terminal-cmd .cursor {
+            display: inline-block; width: 8px; height: 1.1em;
+            background: var(--accent-cyan); animation: blink 1s step-end infinite;
+            vertical-align: middle;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+
+        .log-line {
+            display: grid; grid-template-columns: 90px 60px 1fr;
+            gap: 0.75rem; padding: 0.3rem 0; font-size: 0.8rem;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            animation: fadeIn 0.3s ease forwards;
+            opacity: 0;
+        }
+
+        .log-line:nth-child(1) { animation-delay: 0.1s; }
+        .log-line:nth-child(2) { animation-delay: 0.2s; }
+        .log-line:nth-child(3) { animation-delay: 0.3s; }
+        .log-line:nth-child(4) { animation-delay: 0.4s; }
+        .log-line:nth-child(5) { animation-delay: 0.5s; }
+        .log-line:nth-child(6) { animation-delay: 0.6s; }
+        .log-line:nth-child(7) { animation-delay: 0.7s; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-5px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .log-time { color: var(--text-muted); font-feature-settings: "tnum"; }
+        .log-level {
+            font-weight: 600; text-transform: uppercase; font-size: 0.7rem;
+            padding: 0.1rem 0.4rem; text-align: center; letter-spacing: 0.05em;
+        }
+        .log-level.info { color: var(--accent-cyan); background: rgba(0, 229, 255, 0.1); }
+        .log-level.warn { color: var(--accent-orange); background: rgba(255, 145, 0, 0.1); }
+        .log-level.error { color: var(--accent-red); background: rgba(255, 82, 82, 0.1); }
+        .log-level.debug { color: var(--text-muted); background: rgba(255, 255, 255, 0.05); }
+
+        .log-content { color: var(--text-main); }
+        .log-content .highlight { color: var(--accent-green); }
+        .log-content .key { color: var(--accent-cyan); }
+        .log-content .string { color: var(--accent-green); }
+        .log-content .number { color: var(--accent-orange); }
+
+        .terminal-footer {
+            padding: 1rem 1.5rem; border-top: 1px solid var(--grid-line);
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.75rem; color: var(--text-muted);
+        }
+
+        .filter-tags { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .filter-tag {
+            padding: 0.2rem 0.6rem; border: 1px solid var(--grid-line);
+            color: var(--text-muted); font-size: 0.7rem; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-tag:hover, .filter-tag.active {
+            border-color: var(--accent-cyan); color: var(--accent-cyan);
+            background: rgba(0, 229, 255, 0.05);
+        }
+
+        /* Stats counters */
+        .stats-bar {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 1rem; margin-top: 2rem;
+        }
+
+        .stat-card {
+            background: var(--bg-card); border: 1px solid var(--grid-line);
+            padding: 1.25rem; text-align: center; position: relative;
+            transition: border-color 0.3s, transform 0.3s;
+        }
+
+        .stat-card:hover {
+            border-color: var(--accent-cyan); transform: translateY(-2px);
+        }
+
+        .stat-value {
+            font-family: var(--font-display); font-size: 1.8rem;
+            font-weight: 700; color: var(--accent-cyan); line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 0.7rem; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.1em; margin-top: 0.5rem;
+        }
+
+        /* Install Section */
+        .install-section {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;
+        }
+
+        .install-block {
+            background: var(--bg-panel); border: 1px solid var(--grid-line);
+            padding: 1.5rem; position: relative;
+        }
+
+        .install-block::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-green), transparent);
+        }
+
+        .install-label {
+            font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted);
+            letter-spacing: 0.1em; margin-bottom: 0.75rem;
+        }
+
+        .install-cmd {
+            display: flex; align-items: center; justify-content: space-between;
+            background: rgba(0, 230, 118, 0.03); border: 1px solid rgba(0, 230, 118, 0.1);
+            padding: 0.75rem 1rem; gap: 1rem;
+        }
+
+        .install-cmd code {
+            color: var(--accent-green); font-size: 0.85rem;
+            word-break: break-all; flex: 1;
+        }
+
+        .copy-btn {
+            background: transparent; border: 1px solid var(--accent-green);
+            color: var(--accent-green); padding: 0.4rem 0.8rem;
+            font-family: var(--font-mono); font-size: 0.7rem;
+            cursor: pointer; transition: all 0.2s; white-space: nowrap;
+        }
+        .copy-btn:hover { background: var(--accent-green); color: var(--bg-deep); }
+        .copy-btn.copied { background: var(--accent-cyan); border-color: var(--accent-cyan); color: var(--bg-deep); }
+
+        /* Features */
+        .features {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .feature-card {
+            background: var(--bg-card); border: 1px solid var(--grid-line);
+            padding: 1.75rem; position: relative; overflow: hidden;
+            transition: border-color 0.3s, transform 0.3s;
+        }
+
+        .feature-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%;
+            background: var(--accent-cyan); opacity: 0; transition: opacity 0.3s;
+        }
+
+        .feature-card:hover { border-color: var(--accent-cyan); transform: translateY(-3px); }
+        .feature-card:hover::before { opacity: 1; }
+
+        .feature-num {
+            font-family: var(--font-display); font-size: 2.5rem; font-weight: 700;
+            color: rgba(0, 229, 255, 0.1); margin-bottom: 0.75rem; line-height: 1;
+        }
+
+        .feature-title {
+            font-family: var(--font-display); font-size: 1.1rem;
+            color: var(--text-bright); margin-bottom: 0.5rem; font-weight: 600;
+        }
+
+        .feature-desc { font-size: 0.85rem; color: var(--text-muted); line-height: 1.6; }
+
+        .feature-tag {
+            display: inline-block; margin-top: 0.75rem; padding: 0.2rem 0.5rem;
+            background: rgba(0, 229, 255, 0.08); color: var(--accent-cyan);
+            font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em;
+        }
+
+        /* Keyboard shortcuts */
+        .shortcuts-section {
+            background: var(--bg-panel); border: 1px solid var(--grid-line);
+            padding: 2rem; position: relative;
+        }
+
+        .shortcuts-section::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-green), transparent);
+        }
+
+        .shortcuts-title {
+            font-family: var(--font-display); font-size: 1.2rem;
+            color: var(--text-bright); margin-bottom: 1.5rem; font-weight: 600;
+        }
+
+        .shortcuts-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.5rem;
+        }
+
+        .shortcut-item {
+            display: flex; align-items: center; gap: 0.75rem;
+            padding: 0.5rem 0; font-size: 0.8rem;
+        }
+
+        .shortcut-key {
+            display: inline-block; padding: 0.15rem 0.5rem;
+            background: var(--bg-card); border: 1px solid var(--grid-line);
+            color: var(--accent-cyan); font-family: var(--font-mono);
+            font-size: 0.75rem; min-width: 40px; text-align: center;
+        }
+
+        .shortcut-desc { color: var(--text-muted); }
+
+        /* Architecture */
+        .arch-section {
+            background: var(--bg-panel); border: 1px solid var(--grid-line);
+            padding: 2rem; position: relative;
+        }
+
+        .arch-section::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-purple), transparent);
+        }
+
+        .arch-title {
+            font-family: var(--font-display); font-size: 1.2rem;
+            color: var(--text-bright); margin-bottom: 1.5rem; font-weight: 600;
+        }
+
+        .arch-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .arch-item {
+            padding: 1rem; border: 1px solid var(--grid-line);
+            background: var(--bg-card); overflow: hidden;
+        }
+
+        .arch-item-label {
+            font-size: 0.65rem; text-transform: uppercase; color: var(--accent-purple);
+            letter-spacing: 0.1em; margin-bottom: 0.5rem;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+
+        .arch-item-name {
+            font-size: 0.9rem; color: var(--text-bright); font-weight: 500;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+
+        .arch-item-desc { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; }
+
+        /* CLI Reference */
+        .cli-ref {
+            background: var(--bg-panel); border: 1px solid var(--grid-line);
+            padding: 2rem; position: relative;
+        }
+
+        .cli-ref::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-orange), transparent);
+        }
+
+        .cli-title {
+            font-family: var(--font-display); font-size: 1.2rem;
+            color: var(--text-bright); margin-bottom: 1.5rem; font-weight: 600;
+        }
+
+        .cli-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        .cli-item {
+            display: flex; gap: 1rem; padding: 0.75rem;
+            border-bottom: 1px solid var(--grid-line);
+        }
+
+        .cli-flag {
+            flex: 0 0 120px; color: var(--accent-orange); font-size: 0.8rem;
+        }
+
+        .cli-desc { font-size: 0.8rem; color: var(--text-muted); }
+
+        /* Comparison table */
+        .comparison-section {
+            background: var(--bg-panel); border: 1px solid var(--grid-line);
+            padding: 2rem; position: relative;
+        }
+
+        .comparison-section::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-yellow), transparent);
+        }
+
+        .comparison-title {
+            font-family: var(--font-display); font-size: 1.2rem;
+            color: var(--text-bright); margin-bottom: 1.5rem; font-weight: 600;
+        }
+
+        .comparison-table {
+            width: 100%; border-collapse: collapse; font-size: 0.8rem;
+        }
+
+        .comparison-table th {
+            text-align: left; padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--grid-line); color: var(--accent-cyan);
+            font-weight: 600;
+        }
+
+        .comparison-table td {
+            padding: 0.75rem 1rem; border-bottom: 1px solid var(--grid-line);
+            color: var(--text-muted);
+        }
+
+        .comparison-table tr:hover td { background: rgba(0, 229, 255, 0.02); }
+
+        .comparison-table .check { color: var(--accent-green); }
+        .comparison-table .cross { color: var(--accent-red); }
+
+        /* Author */
+        .author-section {
+            background: var(--bg-panel); border: 1px solid var(--grid-line);
+            padding: 2rem; position: relative;
+        }
+
+        .author-section::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+        }
+
+        .author-card {
+            display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 1.5rem;
+        }
+
+        .author-name {
+            font-family: var(--font-display); font-size: 1.1rem;
+            color: var(--text-bright); font-weight: 600;
+        }
+
+        .author-title {
+            font-size: 0.85rem; color: var(--accent-cyan); margin-top: 0.25rem;
+        }
+
+        .author-exp {
+            font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;
+        }
+
+        /* Footer */
+        footer {
+            margin-top: 2rem; padding: 2rem 0; border-top: 1px solid var(--grid-line);
+        }
+
+        .footer-content {
+            display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 1rem;
+        }
+
+        .footer-links { display: flex; gap: 1.5rem; }
+        .footer-links a {
+            color: var(--accent-cyan); text-decoration: none; font-size: 0.8rem;
+            transition: color 0.2s;
+        }
+        .footer-links a:hover { color: var(--text-bright); }
+
+        .footer-copy {
+            font-size: 0.65rem; color: var(--text-muted); margin-top: 1.5rem;
+            text-align: center;
+        }
+
+        main {
+            display: flex; flex-direction: column; gap: 3rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .install-section { grid-template-columns: 1fr; }
+            .terminal-body { padding: 1rem; font-size: 0.75rem; }
+            .log-line { grid-template-columns: 70px 50px 1fr; gap: 0.5rem; }
+            header { flex-direction: column; align-items: flex-start; gap: 1rem; }
+            .header-right { text-align: left; }
+            .cli-grid { grid-template-columns: 1fr; }
+            .stats-bar { grid-template-columns: repeat(2, 1fr); }
+            .shortcuts-grid { grid-template-columns: 1fr; }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-deep); }
+        ::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent-cyan); }
+
+        /* Selection */
+        ::selection { background: rgba(0, 229, 255, 0.3); color: #fff; }
+
+        .sr-only {
+            position: absolute; width: 1px; height: 1px;
+            padding: 0; margin: -1px; overflow: hidden;
+            clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="noise"></div>
+    <div class="scanline"></div>
+    <div class="scroll-progress" id="scroll-progress"></div>
+    <div class="mouse-glow" id="mouse-glow"></div>
+
+    <div class="container">
+        <header role="banner">
+            <div>
+                <div class="logo-area">
+                    <div class="logo-icon">Lt</div>
+                    <div>
+                        <h1>LogT</h1>
+                        <p class="tagline">TUI Log Viewer для Go</p>
+                    </div>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="version-badge">v0.5.0</div>
+                <div>
+                    <a href="https://github.com/turkprogrammer/logt" target="_blank" rel="noopener" class="github-link">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                        GitHub →
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <main role="main">
+            <section class="terminal-demo" aria-label="Демонстрация LogT">
+                <div class="terminal-header">
+                    <div class="terminal-dots">
+                        <div class="terminal-dot"></div>
+                        <div class="terminal-dot"></div>
+                        <div class="terminal-dot"></div>
+                    </div>
+                    <div class="terminal-title">logt — terminal</div>
+                    <div style="width: 50px;"></div>
+                </div>
+
+                <div class="terminal-body" id="terminal-body">
+                    <div class="terminal-cmd">
+                        <span class="prompt">$</span>
+                        <span class="cmd" id="typing-cmd"></span>
+                        <span class="cursor" id="typing-cursor"></span>
+                    </div>
+
+                    <div id="log-lines">
+                        <div class="log-line">
+                            <span class="log-time">14:23:01</span>
+                            <span class="log-level error">ERROR</span>
+                            <span class="log-content"><span class="key">msg</span>=<span class="string">"connection refused"</span> <span class="key">service</span>=<span class="string">"postgres"</span> <span class="key">port</span>=<span class="number">5432</span></span>
+                        </div>
+                        <div class="log-line">
+                            <span class="log-time">14:23:01</span>
+                            <span class="log-level error">ERROR</span>
+                            <span class="log-content"><span class="key">msg</span>=<span class="string">"retry failed"</span> <span class="key">attempts</span>=<span class="number">3</span> <span class="key">service</span>=<span class="string">"postgres"</span></span>
+                        </div>
+                        <div class="log-line">
+                            <span class="log-time">14:23:02</span>
+                            <span class="log-level warn">WARN</span>
+                            <span class="log-content"><span class="key">msg</span>=<span class="string">"fallback to replica"</span> <span class="key">latency_ms</span>=<span class="number">142</span></span>
+                        </div>
+                        <div class="log-line">
+                            <span class="log-time">14:23:02</span>
+                            <span class="log-level info">INFO</span>
+                            <span class="log-content"><span class="key">msg</span>=<span class="string">"request handled"</span> <span class="key">status</span>=<span class="number">200</span> <span class="key">path</span>=<span class="string">"/api/users"</span></span>
+                        </div>
+                        <div class="log-line">
+                            <span class="log-time">14:23:03</span>
+                            <span class="log-level error">ERROR</span>
+                            <span class="log-content"><span class="key">msg</span>=<span class="string">"timeout exceeded"</span> <span class="key">deadline</span>=<span class="number">5s</span> <span class="key">actual</span>=<span class="number">7.2s</span></span>
+                        </div>
+                        <div class="log-line">
+                            <span class="log-time">14:23:03</span>
+                            <span class="log-level debug">DEBUG</span>
+                            <span class="log-content"><span class="key">msg</span>=<span class="string">"gc cycle"</span> <span class="key">pause</span>=<span class="number">0.8ms</span> <span class="key">heap</span>=<span class="number">256MB</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="terminal-footer">
+                    <div class="filter-tags">
+                        <span class="filter-tag active" onclick="filterLogs('all', this)">All</span>
+                        <span class="filter-tag" onclick="filterLogs('error', this)">Errors</span>
+                        <span class="filter-tag" onclick="filterLogs('warn', this)">Warnings</span>
+                        <span class="filter-tag" onclick="filterLogs('json', this)">JSON Path</span>
+                    </div>
+                    <div>125 tests pass · Go 1.21+</div>
+                </div>
+            </section>
+
+            <!-- Stats counters -->
+            <section class="stats-bar" aria-label="Производительность">
+                <h2 class="sr-only">Производительность LogT</h2>
+                <div class="stat-card">
+                    <div class="stat-value" data-target="27">0</div>
+                    <div class="stat-label">M ops/sec · Ring Buffer</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" data-target="314">0</div>
+                    <div class="stat-label">K lines/sec · JSON Parse</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" data-target="3.7">0</div>
+                    <div class="stat-label">M matches/sec · Text Filter</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" data-target="5000">0</div>
+                    <div class="stat-label">lines · Ring Buffer Default</div>
+                </div>
+            </section>
+
+            <section class="install-section" aria-label="Установка">
+                <h2 class="sr-only">Установка LogT</h2>
+                <div class="install-block">
+                    <div class="install-label">Установка через go install</div>
+                    <div class="install-cmd">
+                        <code>go install github.com/turkprogrammer/logt/cmd/logt@latest</code>
+                        <button class="copy-btn" onclick="copyCmd(this, 'go install github.com/turkprogrammer/logt/cmd/logt@latest')">Копировать</button>
+                    </div>
+                </div>
+                <div class="install-block">
+                    <div class="install-label">Сборка из исходников</div>
+                    <div class="install-cmd">
+                        <code>git clone https://github.com/turkprogrammer/logt && cd logt && go build -o logt ./cmd/logt</code>
+                        <button class="copy-btn" onclick="copyCmd(this, 'git clone https://github.com/turkprogrammer/logt && cd logt && go build -o logt ./cmd/logt')">Копировать</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="features" aria-label="Возможности">
+                <h2 class="sr-only">Возможности</h2>
+
+                <article class="feature-card">
+                    <div class="feature-num">01</div>
+                    <h3 class="feature-title">TUI интерфейс</h3>
+                    <p class="feature-desc">Интерактивный терминальный интерфейс на Bubble Tea. Навигация, поиск, bookmarks — всё в одном экране.</p>
+                    <span class="feature-tag">Bubble Tea</span>
+                </article>
+
+                <article class="feature-card">
+                    <div class="feature-num">02</div>
+                    <h3 class="feature-title">Умная фильтрация</h3>
+                    <p class="feature-desc">Фильтры по времени (--since/--until), уровню логов, JSON Path выражениям. Комбинируйте фильтры для точного поиска.</p>
+                    <span class="feature-tag">JSON Path</span>
+                </article>
+
+                <article class="feature-card">
+                    <div class="feature-num">03</div>
+                    <h3 class="feature-title">Мульти-формат</h3>
+                    <p class="feature-desc">Авто-определение формата: JSON, Logfmt, Plain. Каждая строка парсится и структурируется автоматически.</p>
+                    <span class="feature-tag">Auto-detect</span>
+                </article>
+
+                <article class="feature-card">
+                    <div class="feature-num">04</div>
+                    <h3 class="feature-title">Headless режим</h3>
+                    <p class="feature-desc">Для скриптов и CI/CD: --headless --stats, --tail N, --forward. Интегрируется в пайплайны без TUI.</p>
+                    <span class="feature-tag">Scriptable</span>
+                </article>
+
+                <article class="feature-card">
+                    <div class="feature-num">05</div>
+                    <h3 class="feature-title">Ring Buffer</h3>
+                    <p class="feature-desc">Хранит последние 5000 строк в памяти (~2MB). Потокобезопасный, блокировка-free чтение. Настраивается через --buffer.</p>
+                    <span class="feature-tag">5000 lines · ~2MB</span>
+                </article>
+
+                <article class="feature-card">
+                    <div class="feature-num">06</div>
+                    <h3 class="feature-title">Log Forwarding</h3>
+                    <p class="feature-desc">Экспорт отфильтрованных логов в файл (--forward filtered.log) или stdout (--forward -) для pipe-интеграций.</p>
+                    <span class="feature-tag">Pipe-ready</span>
+                </article>
+
+                <article class="feature-card">
+                    <div class="feature-num">07</div>
+                    <h3 class="feature-title">Bookmarks</h3>
+                    <p class="feature-desc">Сохраняйте важные строки одной клавишей (m). Просматривайте (M), экспортируйте в YAML (e).</p>
+                    <span class="feature-tag">m · M · e</span>
+                </article>
+
+                <article class="feature-card">
+                    <div class="feature-num">08</div>
+                    <h3 class="feature-title">JSON Explorer</h3>
+                    <p class="feature-desc">Нажмите Enter на JSON строке для разворачивания в полноэкранное дерево с подсветкой ключей и значений.</p>
+                    <span class="feature-tag">Enter to expand</span>
+                </article>
+
+                <article class="feature-card">
+                    <div class="feature-num">09</div>
+                    <h3 class="feature-title">Stdin Support</h3>
+                    <p class="feature-desc">Работает с pipe: cat app.log | logt, kubectl logs deployment/app | logt, docker logs -f mycontainer | logt.</p>
+                    <span class="feature-tag">cat | logt</span>
+                </article>
+
+                <article class="feature-card">
+                    <div class="feature-num">10</div>
+                    <h3 class="feature-title">Shell Completions</h3>
+                    <p class="feature-desc">Автодополнение для bash, zsh, fish. Установка одной командой: logt completion bash > /etc/bash_completion.d/logt.</p>
+                    <span class="feature-tag">bash · zsh · fish</span>
+                </article>
+
+                <article class="feature-card">
+                    <div class="feature-num">11</div>
+                    <h3 class="feature-title">Live Tail</h3>
+                    <p class="feature-desc">Автопрокрутка при поступлении новых строк. Автоматическое обнаружение ротации файлов. Polling и watcher.</p>
+                    <span class="feature-tag">Real-time</span>
+                </article>
+
+                <article class="feature-card">
+                    <div class="feature-num">12</div>
+                    <h3 class="feature-title">Синтаксис</h3>
+                    <p class="feature-desc">Цветовая кодировка уровней: INFO=синий, WARN=желтый, ERROR=красный. Подсветка JSON ключей и значений.</p>
+                    <span class="feature-tag">Syntax highlight</span>
+                </article>
+            </section>
+
+            <!-- Keyboard shortcuts -->
+            <section class="shortcuts-section" aria-label="Горячие клавиши">
+                <h2 class="shortcuts-title">Горячие клавиши</h2>
+                <div class="shortcuts-grid">
+                    <div class="shortcut-item">
+                        <span class="shortcut-key">Space</span>
+                        <span class="shortcut-desc">Пауза/Продолжить автопрокрутку</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-key">/</span>
+                        <span class="shortcut-desc">Открыть фильтр по подстроке</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-key">r</span>
+                        <span class="shortcut-desc">Переключить Fuzzy/Regex фильтр</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-key">Enter</span>
+                        <span class="shortcut-desc">Применить фильтр / Открыть JSON</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-key">Esc</span>
+                        <span class="shortcut-desc">Очистить фильтр / Закрыть JSON</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-key">↑ ↓</span>
+                        <span class="shortcut-desc">Прокрутка вверх/вниз</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-key">PgUp</span>
+                        <span class="shortcut-desc">Прокрутка по страницам</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-key">g</span>
+                        <span class="shortcut-desc">Перейти в начало (less-style)</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-key">G</span>
+                        <span class="shortcut-desc">Перейти в конец (less-style)</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-key">n / N</span>
+                        <span class="shortcut-desc">Следующее / Предыдущее совпадение</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-key">Tab</span>
+                        <span class="shortcut-desc">Переключить панель источников</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-key">m</span>
+                        <span class="shortcut-desc">Bookmark текущую строку</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-key">M</span>
+                        <span class="shortcut-desc">Показать bookmarks</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-key">e</span>
+                        <span class="shortcut-desc">Export bookmarks в YAML</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-key">q</span>
+                        <span class="shortcut-desc">Выход</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="arch-section" aria-label="Архитектура">
+                <h2 class="arch-title">Архитектура</h2>
+                <div class="arch-grid">
+                    <div class="arch-item">
+                        <div class="arch-item-label">entry point</div>
+                        <div class="arch-item-name">cmd/logt/main.go</div>
+                        <div class="arch-item-desc">CLI диспетчер, signal handling</div>
+                    </div>
+                    <div class="arch-item">
+                        <div class="arch-item-label">domain</div>
+                        <div class="arch-item-name">internal/domain</div>
+                        <div class="arch-item-desc">LogLine, RingBuffer, parsers</div>
+                    </div>
+                    <div class="arch-item">
+                        <div class="arch-item-label">providers</div>
+                        <div class="arch-item-name">internal/provider</div>
+                        <div class="arch-item-desc">File, Stdin, Watcher, Multi</div>
+                    </div>
+                    <div class="arch-item">
+                        <div class="arch-item-label">ui</div>
+                        <div class="arch-item-name">internal/ui</div>
+                        <div class="arch-item-desc">Bubble Tea model/view/update</div>
+                    </div>
+                    <div class="arch-item">
+                        <div class="arch-item-label">config</div>
+                        <div class="arch-item-name">internal/config</div>
+                        <div class="arch-item-desc">Viper + pflag + env</div>
+                    </div>
+                    <div class="arch-item">
+                        <div class="arch-item-label">jsonpath</div>
+                        <div class="arch-item-name">internal/domain/jsonpath</div>
+                        <div class="arch-item-desc">JSON Path expressions</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Comparison -->
+            <section class="comparison-section" aria-label="Сравнение">
+                <h2 class="comparison-title">Сравнение с lnav</h2>
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Возможность</th>
+                            <th>LogT</th>
+                            <th>lnav</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Размер бинарника</td>
+                            <td>~6MB</td>
+                            <td>~15MB</td>
+                        </tr>
+                        <tr>
+                            <td>Время старта</td>
+                            <td>&lt;100ms</td>
+                            <td>~200ms</td>
+                        </tr>
+                        <tr>
+                            <td>JSON поддержка</td>
+                            <td>Нативная</td>
+                            <td>Ограниченная</td>
+                        </tr>
+                        <tr>
+                            <td>YAML конфиг</td>
+                            <td class="check">✓</td>
+                            <td class="cross">✗</td>
+                        </tr>
+                        <tr>
+                            <td>Требует конфиг</td>
+                            <td class="check">Нет</td>
+                            <td class="cross">Да</td>
+                        </tr>
+                        <tr>
+                            <td>Headless режим</td>
+                            <td class="check">✓</td>
+                            <td class="cross">✗</td>
+                        </tr>
+                        <tr>
+                            <td>Shell completions</td>
+                            <td class="check">✓</td>
+                            <td class="cross">✗</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="cli-ref" aria-label="CLI справочник">
+                <h2 class="cli-title">CLI Справочник</h2>
+                <div class="cli-grid">
+                    <div class="cli-item">
+                        <span class="cli-flag">--since, -S</span>
+                        <span class="cli-desc">Фильтр с времени (1h, 30m, 2024-01-15)</span>
+                    </div>
+                    <div class="cli-item">
+                        <span class="cli-flag">--until, -U</span>
+                        <span class="cli-desc">Фильтр по время (1h, 30m, 2024-01-15)</span>
+                    </div>
+                    <div class="cli-item">
+                        <span class="cli-flag">--json, -j</span>
+                        <span class="cli-desc">JSON Path фильтр ('.level == "error"')</span>
+                    </div>
+                    <div class="cli-item">
+                        <span class="cli-flag">--level, -l</span>
+                        <span class="cli-desc">Фильтр по уровню (debug,info,warn,error)</span>
+                    </div>
+                    <div class="cli-item">
+                        <span class="cli-flag">--headless, -H</span>
+                        <span class="cli-desc">Режим без TUI (для скриптов)</span>
+                    </div>
+                    <div class="cli-item">
+                        <span class="cli-flag">--tail, -n</span>
+                        <span class="cli-desc">Последние N строк (0 = все)</span>
+                    </div>
+                    <div class="cli-item">
+                        <span class="cli-flag">--stats, -s</span>
+                        <span class="cli-desc">Вывод агрегированной статистики</span>
+                    </div>
+                    <div class="cli-item">
+                        <span class="cli-flag">--forward, -f</span>
+                        <span class="cli-desc">Экспорт логов (файл или stdout)</span>
+                    </div>
+                    <div class="cli-item">
+                        <span class="cli-flag">--export, -e</span>
+                        <span class="cli-desc">Экспорт bookmarks в файл</span>
+                    </div>
+                    <div class="cli-item">
+                        <span class="cli-flag">--buffer, -b</span>
+                        <span class="cli-desc">Размер буфера (по умолчанию: 5000)</span>
+                    </div>
+                    <div class="cli-item">
+                        <span class="cli-flag">--max-buffer, -m</span>
+                        <span class="cli-desc">Максимальный размер буфера</span>
+                    </div>
+                    <div class="cli-item">
+                        <span class="cli-flag">--path, -p</span>
+                        <span class="cli-desc">Пути к файлам или шаблоны</span>
+                    </div>
+                    <div class="cli-item">
+                        <span class="cli-flag">--version, -v</span>
+                        <span class="cli-desc">Версия</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="author-section" aria-label="Об авторе">
+                <h2 class="sr-only">Об авторе</h2>
+                <div class="author-card">
+                    <div class="author-info">
+                        <div class="author-name">Юсупов Роберт Рахимович</div>
+                        <div class="author-title">Senior Backend Engineer</div>
+                        <div class="author-exp">18+ лет опыта · Go · PHP · ML · High-load</div>
+                    </div>
+                    <div class="author-links">
+                        <a href="https://github.com/turkprogrammer" target="_blank" rel="noopener" class="github-link" style="margin-top: 0;">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                            GitHub →
+                        </a>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer role="contentinfo">
+            <div class="footer-content">
+                <div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">LogT — Modern TUI Log Viewer</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.25rem;">Фильтрация, JSON Path, Headless | Go 1.21+</div>
+                </div>
+                <div class="footer-links">
+                    <a href="https://github.com/turkprogrammer/logt" target="_blank" rel="noopener">GitHub</a>
+                    <a href="https://github.com/turkprogrammer/logt/blob/master/README.md" target="_blank" rel="noopener">Документация</a>
+                    <a href="https://github.com/turkprogrammer/logt/issues" target="_blank" rel="noopener">Обратная связь</a>
+                </div>
+            </div>
+            <div class="footer-copy">
+                Go, Bubble Tea, Lip Gloss — зарегистрированные товарные знаки respective owners. LogT не связан с Google.
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // Copy command
+        function copyCmd(btn, cmd) {
+            navigator.clipboard.writeText(cmd).then(() => {
+                btn.textContent = 'Скопировано ✓';
+                btn.classList.add('copied');
+                setTimeout(() => { btn.textContent = 'Копировать'; btn.classList.remove('copied'); }, 2000);
+            });
+        }
+
+        // Filter logs in terminal demo
+        function filterLogs(level, tag) {
+            const lines = document.querySelectorAll('.log-line');
+            const tags = document.querySelectorAll('.filter-tag');
+
+            tags.forEach(t => t.classList.remove('active'));
+            tag.classList.add('active');
+
+            lines.forEach(line => {
+                const logLevel = line.querySelector('.log-level');
+                if (level === 'all') {
+                    line.style.display = 'grid';
+                } else if (level === 'json') {
+                    line.style.display = logLevel.textContent === 'INFO' ? 'grid' : 'none';
+                } else {
+                    line.style.display = logLevel.classList.contains(level) ? 'grid' : 'none';
+                }
+            });
+        }
+
+        // Typing animation
+        const cmd = 'logt /var/log/app/*.log --level error --since 1h';
+        const typingEl = document.getElementById('typing-cmd');
+        const cursorEl = document.getElementById('typing-cursor');
+        let charIndex = 0;
+
+        function typeCmd() {
+            if (charIndex < cmd.length) {
+                typingEl.textContent += cmd.charAt(charIndex);
+                charIndex++;
+                setTimeout(typeCmd, 50 + Math.random() * 30);
+            }
+        }
+
+        // Start typing when terminal is visible
+        const typeObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    typeObserver.unobserve(entry.target);
+                    setTimeout(typeCmd, 500);
+                }
+            });
+        }, { threshold: 0.3 });
+        typeObserver.observe(document.querySelector('.terminal-demo'));
+
+        // Scroll progress
+        window.addEventListener('scroll', () => {
+            const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+            const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            const progress = (scrollTop / scrollHeight) * 100;
+            document.getElementById('scroll-progress').style.width = progress + '%';
+        });
+
+        // Mouse glow
+        const mouseGlow = document.getElementById('mouse-glow');
+        document.addEventListener('mousemove', (e) => {
+            mouseGlow.style.left = e.clientX + 'px';
+            mouseGlow.style.top = e.clientY + 'px';
+        });
+
+        // Animate stat counters on scroll
+        function animateValue(el, start, end, duration) {
+            const startTime = performance.now();
+            const isFloat = String(end).includes('.');
+
+            function update(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                const current = start + (end - start) * eased;
+
+                if (isFloat) {
+                    el.textContent = current.toFixed(1);
+                } else {
+                    el.textContent = Math.floor(current).toLocaleString();
+                }
+
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                }
+            }
+            requestAnimationFrame(update);
+        }
+
+        const statObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    statObserver.unobserve(entry.target);
+                    const target = parseFloat(entry.target.dataset.target);
+                    animateValue(entry.target, 0, target, 1500);
+                }
+            });
+        }, { threshold: 0.5 });
+
+        document.querySelectorAll('.stat-value').forEach(el => {
+            statObserver.observe(el);
+        });
+
+        // Animate terminal lines on scroll
+        const lineObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.animationPlayState = 'running';
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.log-line').forEach(el => {
+            el.style.animationPlayState = 'paused';
+            lineObserver.observe(el);
+        });
+
+        // Parallax on feature cards
+        document.querySelectorAll('.feature-card').forEach(card => {
+            card.addEventListener('mouseenter', (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                const rotateX = (y - centerY) / 20;
+                const rotateY = (centerX - x) / 20;
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-3px)`;
+            });
+
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) translateY(0)';
+            });
+
+            card.addEventListener('mousemove', (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                const rotateX = (y - centerY) / 20;
+                const rotateY = (centerX - x) / 20;
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-3px)`;
+            });
+        });
+    </script>
+
+    <!-- SEO: Hidden content for search engines -->
+    <noscript>
+        <div style="max-width: 800px; margin: 2rem auto; padding: 2rem; background: #111520; color: #c5cdd9; font-family: monospace;">
+            <h2>LogT — TUI Log Viewer для Go</h2>
+            <p>LogT — это современный TUI log viewer для Go приложений, разработанный как легковесная альтернатива lnav.</p>
+            <h3>Возможности:</h3>
+            <ul>
+                <li>Мульти-source tailing — слежение за несколькими файлами по шаблону</li>
+                <li>Ring Buffer — хранит последние 5000 строк в памяти</li>
+                <li>Stdin Support — cat app.log | logt</li>
+                <li>Log Forwarding — экспорт логов в файл или stdout</li>
+                <li>Time Filtering — фильтрация по времени (--since, --until)</li>
+                <li>JSON Path Filtering — мощная фильтрация JSON</li>
+                <li>Headless Mode — CLI режим без TUI</li>
+                <li>Bookmarks — сохранение важных строк</li>
+                <li>Shell Completions — автодополнение для bash/zsh/fish</li>
+                <li>Цветовая подсветка уровней логов</li>
+                <li>Live Tail — автопрокрутка при поступлении новых строк</li>
+            </ul>
+            <h3>Производительность:</h3>
+            <ul>
+                <li>RingBuffer Add: ~27M ops/sec</li>
+                <li>JSON Парсинг: ~314K строк/sec</li>
+                <li>Фильтр по тексту: ~3.7M совпадений/sec</li>
+                <li>Определение уровня: ~394K строк/sec</li>
+            </ul>
+            <p><a href="https://github.com/turkprogrammer/logt" style="color: #00e5ff;">GitHub</a> | <a href="https://github.com/turkprogrammer/logt/blob/master/README.md" style="color: #00e5ff;">Документация</a></p>
+        </div>
+    </noscript>
+
+    <!-- SEO: BreadcrumbList schema -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "LogT",
+                "item": "https://turkprogrammer.github.io/logt/"
+            }
+        ]
+    }
+    </script>
+
+    <!-- SEO: WebSite schema for sitelinks -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "LogT — TUI Log Viewer для Go",
+        "url": "https://turkprogrammer.github.io/logt/",
+        "description": "Современный TUI log viewer для Go приложений. Фильтрация, JSON Path, headless режим.",
+        "inLanguage": "ru",
+        "author": {
+            "@type": "Person",
+            "name": "turkprogrammer",
+            "url": "https://github.com/turkprogrammer"
+        }
+    }
+    </script>
+</body>
+</html>
