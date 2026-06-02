@@ -14,11 +14,21 @@ import (
 
 // runHeadless запускает headless режим (без TUI).
 func runHeadless(mp *provider.MultiProvider, cfg *config.Config) {
-	// Ждём немного для чтения данных
-	time.Sleep(100 * time.Millisecond)
+	// Дрейним канал логов в буфер
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for logLine := range mp.LogChan() {
+			mp.Buffer().Add(logLine)
+		}
+	}()
 
-	// Закрываем провайдер
+	// Ждём чтения данных из файлов
+	time.Sleep(500 * time.Millisecond)
+
+	// Закрываем провайдер — это закроет канал и завершит дрейн
 	mp.Close()
+	<-done
 
 	// Вывод статистики
 	if cfg.Stats {
