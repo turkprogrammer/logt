@@ -359,6 +359,24 @@
             text-transform: uppercase; letter-spacing: 0.1em; margin-top: 0.5rem;
         }
 
+        .stat-tooltip {
+            display: none; position: absolute; bottom: calc(100% + 10px);
+            left: 50%; transform: translateX(-50%); width: 260px;
+            background: var(--bg-deep); border: 1px solid var(--accent-cyan);
+            color: var(--text-main); font-size: 0.75rem; line-height: 1.5;
+            padding: 0.75rem 1rem; z-index: 100; text-transform: none;
+            letter-spacing: normal; font-weight: 400;
+            box-shadow: 0 4px 20px rgba(0, 229, 255, 0.15);
+        }
+
+        .stat-tooltip::after {
+            content: ''; position: absolute; top: 100%; left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent; border-top-color: var(--accent-cyan);
+        }
+
+        .stat-card:hover .stat-tooltip { display: block; }
+
         /* Install Section */
         .install-section {
             display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;
@@ -761,18 +779,22 @@
                 <div class="stat-card">
                     <div class="stat-value" data-target="27">0</div>
                     <div class="stat-label">M ops/sec · Ring Buffer</div>
+                    <div class="stat-tooltip">Скорость добавления строк в кольцевой буфер. Потокобезопасная операция с блокировкой-free чтением</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" data-target="314">0</div>
                     <div class="stat-label">K lines/sec · JSON Parse</div>
+                    <div class="stat-tooltip">Скорость парсинга JSON строк с авто-определением формата. Каждая строка анализируется и структурируется</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" data-target="3.7">0</div>
                     <div class="stat-label">M matches/sec · Text Filter</div>
+                    <div class="stat-tooltip">Скорость текстового поиска по подстроке. Без учёта регистра, оптимизирован для большого объёма логов</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" data-target="5000">0</div>
                     <div class="stat-label">lines · Ring Buffer Default</div>
+                    <div class="stat-tooltip">Размер кольцевого буфера по умолчанию. Хранит последние 5000 строк в памяти (~2MB). Настраивается через --buffer</div>
                 </div>
             </section>
 
